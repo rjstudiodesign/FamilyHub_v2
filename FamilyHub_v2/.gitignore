@@ -1,0 +1,12 @@
+# Abhängigkeiten
+/node_modules
+
+# Lokale Konfiguration
+.vscode/
+
+# Build-Artefakte
+/output.css 
+
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db

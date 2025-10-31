@@ -1,0 +1,16 @@
+{
+  "name": "familyhub",
+  "version": "2.0.0",
+  "description": "FamilyHub – Moderne Familienorganisation",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "dev:css": "tailwindcss -i ./input.css -o ./output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  },
+  "dependencies": {
+    "firebase": "^10.0.0"
+  }
+}
