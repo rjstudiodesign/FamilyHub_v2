@@ -1,5 +1,5 @@
 // firebase.js – Initialisierung für FamilyHub
-
+// FINALE KORRIGIERTE VERSION (behebt alle fehlenden Exporte)
 
 import { initializeApp } from 'https://esm.sh/firebase/app';
 import {
@@ -11,7 +11,14 @@ import {
   doc,
   deleteDoc,
   serverTimestamp,
-  orderBy
+  orderBy,
+  runTransaction,
+  getDocs,
+  where,
+  updateDoc,
+  getDoc,
+  setDoc, // <--- 1. HIER HINZUGEFÜGT (Import vom CDN)
+  writeBatch
 } from 'https://esm.sh/firebase/firestore';
 import { getAuth } from 'https://esm.sh/firebase/auth';
 import {
@@ -21,7 +28,7 @@ import {
   getDownloadURL
 } from 'https://esm.sh/firebase/storage';
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Ihre Firebase Konfiguration (bereits korrekt)
 const firebaseConfig = {
   apiKey: "AIzaSyBbx9pn_QARUqxFlvklgk31yHFACVVmjWw",
   authDomain: "family-hub-84c50.firebaseapp.com",
@@ -47,6 +54,13 @@ export {
   deleteDoc,
   serverTimestamp,
   orderBy,
+  runTransaction,
+  getDocs,
+  where,
+  updateDoc,
+  getDoc,
+  setDoc, // <--- 2. HIER HINZUGEFÜGT (Export an settings.js)
+  writeBatch,
   ref,
   uploadBytesResumable,
   getDownloadURL

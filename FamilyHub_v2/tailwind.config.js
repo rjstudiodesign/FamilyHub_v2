@@ -19,7 +19,7 @@ module.exports = {
         'hover-glass': 'var(--hover-glass)', // <--- DER FEHLENDE SCHLÜSSEL
       },
       backgroundImage: {
-        'gradient-primary': 'var(--gradient-primary)',
+         'gradient-primary': 'var(--gradient-primary)',
       },
       boxShadow: {
         'glow-rose': 'var(--shadow-glow-rose)',

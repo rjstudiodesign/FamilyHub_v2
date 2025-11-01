@@ -1,11 +1,14 @@
 // js/gallery.js
+// KORRIGIERTE IMPORTE
 
-import { db, storage, collection, query, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp, orderBy, ref, getDownloadURL } from './firebase.js';
-import { uploadBytesResumable } from 'https://esm.sh/firebase/storage'; // KORRIGIERTER CDN-Import
+import { 
+    db, storage, 
+    collection, query, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp, orderBy, 
+    ref, getDownloadURL, uploadBytesResumable 
+} from './firebase.js'; // <-- ALLE Firebase-Funktionen kommen jetzt von hier
 import { getCurrentUser } from './auth.js';
 import { openModal, closeModal, showNotification, showButtonSpinner, hideButtonSpinner } from './ui.js';
 
-// Globale Variable für den Unsubscriber, um Memory Leaks zu verhindern
 let galleryUnsubscribe = null;
 let galleryMedia = [];
 
@@ -15,16 +18,14 @@ export function renderGallery(listeners) {
         return;
     }
 
-    const { currentFamilyId, membersData } = getCurrentUser(); // membersData wird jetzt benötigt
+    const { currentFamilyId, membersData } = getCurrentUser();
     if (!currentFamilyId || !membersData) {
         showNotification("Fehler: Mitgliedsdaten fehlen für Galerieansicht.", "error");
         return;
     }
     
-    // ZEIGE DEN LADE-ZUSTAND AN (Skeleton)
     showGallerySkeleton();
 
-    // Listener beenden, falls vorhanden
     if (listeners.gallery) {
         listeners.gallery();
     }
@@ -41,19 +42,18 @@ export function renderGallery(listeners) {
         showEmptyState(true); 
     });
 
-    // Register unsubscribe in the central listeners object
     listeners.gallery = galleryUnsubscribe;
 }
 
-/**
- * Zeigt den Lade-Zustand (Skeleton) an.
- */
-function showGallerySkeleton() { // <--- DIESE FUNKTION FEHLTE
+function showGallerySkeleton() {
     const container = document.getElementById('gallery-album-container');
     const emptyState = document.getElementById('gallery-empty-state');
     const skeleton = document.getElementById('gallery-skeleton');
     
-    if (!container || !skeleton || !emptyState) return;
+    if (!container || !skeleton || !emptyState) {
+        console.error("Architekt: Galerie-DOM-Struktur in index.html ist fehlerhaft.");
+        return;
+    }
 
     emptyState.classList.add('hidden');
     container.innerHTML = '';
@@ -71,11 +71,6 @@ function showGallerySkeleton() { // <--- DIESE FUNKTION FEHLTE
     skeleton.classList.remove('hidden');
 }
 
-
-/**
- * Gruppiert Medien nach Monat und Jahr.
- * @returns {Object} Ein Objekt, z.B. { "Oktober 2025": [media1, media2], ... }
- */
 function groupMediaByMonth(mediaItems) {
     const grouped = {};
     const formatter = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
@@ -98,7 +93,6 @@ function renderGalleryAlbums() {
     const skeleton = document.getElementById('gallery-skeleton');
     
     if (!container || !skeleton) return;
-
     skeleton.classList.add('hidden');
 
     if (galleryMedia.length === 0) {
@@ -108,21 +102,21 @@ function renderGalleryAlbums() {
     }
 
     showEmptyState(false);
-    container.innerHTML = ''; // Container leeren
+    container.innerHTML = ''; 
 
     const groupedMedia = groupMediaByMonth(galleryMedia);
     
     for (const monthYear in groupedMedia) {
         const albumCard = document.createElement('div');
-        albumCard.className = 'gallery-album-card'; //
+        albumCard.className = 'gallery-album-card';
         
         const header = document.createElement('h3');
-        header.className = 'gallery-album-header'; //
+        header.className = 'gallery-album-header';
         header.textContent = monthYear;
         albumCard.appendChild(header);
         
         const grid = document.createElement('div');
-        grid.className = 'gallery-album-grid'; //
+        grid.className = 'gallery-album-grid';
         
         groupedMedia[monthYear].forEach(media => {
             grid.appendChild(createMediaCard(media));
@@ -135,7 +129,7 @@ function renderGalleryAlbums() {
 
 function createMediaCard(media) {
     const card = document.createElement('div');
-    card.className = 'gallery-media-item'; //
+    card.className = 'gallery-media-item';
     card.onclick = () => window.openMediaDetail(media);
     
     const isVideo = !!(media.type && media.type.startsWith && media.type.startsWith('video/'));
@@ -148,7 +142,7 @@ function createMediaCard(media) {
         card.appendChild(video);
 
         const playBadge = document.createElement('div');
-        playBadge.className = 'gallery-video-badge'; //
+        playBadge.className = 'gallery-video-badge';
         playBadge.innerHTML = '<i data-lucide="play" style="fill: var(--text-primary);"></i>';
         card.appendChild(playBadge);
     } else {
@@ -162,10 +156,6 @@ function createMediaCard(media) {
     return card;
 }
 
-/**
- * Steuert die Sichtbarkeit des "Empty State"
- * @param {boolean} show Ob der Empty State angezeigt werden soll
- */
 function showEmptyState(show) {
     const emptyState = document.getElementById('gallery-empty-state');
     if (emptyState) {
@@ -177,9 +167,7 @@ function showEmptyState(show) {
     }
 }
 
-
-// === GLOBALE FUNKTIONEN (werden an window gebunden) ===
-
+// === GLOBALE FUNKTIONEN ===
 window.triggerGalleryUpload = function() {
     document.getElementById('gallery-upload-input')?.click();
 }
@@ -195,13 +183,13 @@ window.handleGalleryUpload = function(event) {
             <div id="upload-preview-container" class="grid grid-cols-3 gap-2 mb-4"></div>
             <textarea id="upload-description" class="form-input" rows="3" placeholder="Beschreibung (optional)"></textarea>
             <div class="flex justify-end gap-3 pt-4 border-t border-border-glass">
-                <button type="button" class="btn-secondary" onclick="window.closeModal()">Abbrechen</button>
+                <button type="button" class="btn-secondary" data-action="close-modal">Abbrechen</button>
                 <button type="button" id="upload-submit-btn" class="btn-premium" onclick="window.startUpload()">
                     <span class="btn-text" id="upload-btn-count">Datei(en) hochladen</span>
                 </button>
             </div>
         </div>
-    `, 'template-upload-modal'); // Nutzt die Modal-Logik von ui.js
+    `, 'template-upload-modal');
 
     setTimeout(() => {
         const previewContainer = document.getElementById('upload-preview-container');
@@ -209,7 +197,6 @@ window.handleGalleryUpload = function(event) {
         files.forEach(file => {
             const preview = document.createElement('div');
             preview.className = 'relative aspect-square rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center';
-            
             if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
                 reader.onload = e => {
@@ -274,9 +261,11 @@ window.startUpload = async function() {
 }
 
 window.openMediaDetail = function(media) {
-    // Generiert den Modal-Inhalt dynamisch (statt Template-IDs)
     openModal(`
         <div class="modal-content glass-premium max-w-2xl w-full">
+            <button class="icon-button-ghost absolute top-4 right-4" data-action="close-modal">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
             <h2 class="text-xl font-bold text-gradient mb-4">${media.fileName || 'Mediendetail'}</h2>
             <div class="flex flex-col md:flex-row gap-6">
                 <div class="flex-1 flex items-center justify-center bg-black/20 rounded-lg">
@@ -291,10 +280,10 @@ window.openMediaDetail = function(media) {
                     ${media.description ? `<p class="text-sm text-text-main mt-2">${media.description}</p>` : ''}
                     <div class="flex gap-2 mt-auto pt-4 border-t border-border-glass">
                         <button class="btn-secondary flex-1" onclick="window.downloadMedia('${media.url}', '${media.fileName}')">
-                            <i data-lucide="download" class="w-5 h-5"></i> Download
+                            <i data-lucide="download" class="w-5 h-5"></i>
                         </button>
                         <button class="btn-secondary flex-1 bg-red-500/20 border-red-500/30 text-red-400" onclick="window.deleteMedia('${media.id}')">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i> Löschen
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
                         </button>
                     </div>
                 </div>
@@ -318,10 +307,9 @@ window.deleteMedia = async function(mediaId) {
     
     const { currentFamilyId } = getCurrentUser();
     if (!currentFamilyId) return;
-
-    // TODO: Löschen aus Storage implementieren (fortgeschritten)
-
+    
     try {
+        // TODO: Löschen aus Storage implementieren (fortgeschritten)
         const mediaRef = doc(db, 'families', currentFamilyId, 'media', mediaId);
         await deleteDoc(mediaRef);
         closeModal('template-media-detail-modal');
