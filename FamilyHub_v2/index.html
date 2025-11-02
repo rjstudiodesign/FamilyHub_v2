@@ -30,9 +30,7 @@
         <a href="#" class="nav-item-desktop" data-page="pinnwand">
           <i data-lucide="kanban-square"></i> <span>Pinnwand</span>
         </a>
-        <a href="#" class="nav-item-desktop" data-page="gallery">
-          <i data-lucide="images"></i> <span>Galerie</span>
-        </a>
+        <a href="#" class="nav-item-desktop" data-page="wishlist"><i data-lucide="gift"></i><span>Wünsche</span></a>
         <a href="#" class="nav-item-desktop" data-page="challenges">
           <i data-lucide="award"></i> <span>Challenges</span>
           <span class="nav-badge-premium">Pro</span>
@@ -63,34 +61,30 @@
       <button class="nav-item" data-page="pinnwand">
         <i data-lucide="kanban-square"></i> <span>Pinnwand</span>
       </button>
-      <button class="nav-item" data-page="gallery">
-        <i data-lucide="images"></i> <span>Galerie</span>
-      </button>
+      <button class="nav-item" data-page="wishlist"><i data-lucide="gift"></i><span>Wünsche</span></button>
       <button class="nav-item" data-page="settings">
         <i data-lucide="settings"></i> <span>Menü</span>
       </button>
     </nav>
   </div>
   
-  <div id="modal-container"></div>
-
-
   <template id="template-feed">
-    <div class="page-container">
-      <div id="stories-container" class="flex gap-4 overflow-x-auto mb-6 pb-2">
-        <div class="skeleton-story animate-pulse"></div>
-        <div class="skeleton-story animate-pulse"></div>
-        <div class="skeleton-story animate-pulse"></div>
-      </div>
-      <div class="flex gap-2 mb-4">
-        <button class="btn-filter active" data-filter="all">Alle</button>
-        <button class="btn-filter" data-filter="posts">Posts</button>
-        <button class="btn-filter" data-filter="events">Events</button>
-      </div>
-      <div id="feed-posts-container" class="space-y-6">
+    <div id="gratitude-trigger-container" class="mb-6"></div>
+    
+    <div class="lg:flex lg:gap-6">
+        <div class="lg:flex-1">
+            <div id="feed-posts-container"></div>
         </div>
+        <aside class="w-full lg:w-72 mt-6 lg:mt-0 flex-shrink-0">
+            <div id="goal-widget-container">
+            </div>
+        </aside>
     </div>
-  </template>
+    
+    <button id="fab-create-post" class="fab-create-post" onclick="window.openCreatePostModal()" title="Neuer Beitrag">
+        <i data-lucide="plus" class="w-7 h-7"></i>
+    </button>
+</template>
 
   <template id="template-pinnwand">
     <div class="pinnwand-column-container">
@@ -145,11 +139,13 @@
         <nav class="hidden md:flex gap-4 border-b border-border-glass pb-2" id="settings-tabs-desktop">
           <button class="settings-tab" data-tab="profile">Profil</button>
           <button class="settings-tab" data-tab="family">Familie</button>
+          <button class="settings-tab" data-tab="goals">Ziele</button>
           <button class="settings-tab" data-tab="invite">Einladen</button>
         </nav>
         <select id="settings-tabs-mobile" class="form-input md:hidden">
             <option value="profile">Profil</option>
             <option value="family">Familie</option>
+            <option value="goals">Ziele</option>
             <option value="invite">Einladen</option>
         </select>
       </div>
@@ -175,6 +171,18 @@
         <section id="settings-family" class="settings-tab-panel hidden">
           <h2 class="text-lg font-bold text-gradient mb-4">Familienmitglieder</h2>
           <div id="family-members-list" class="flex flex-col gap-3">
+            </div>
+        </section>
+
+        <section id="settings-goals" class="settings-tab-panel hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-gradient">Familienziele</h2>
+                <button id="add-goal-btn" class="cta-primary-glow">
+                    <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Neues Ziel
+                </button>
+            </div>
+            <div id="goals-list-container" class="space-y-4">
+                <!-- Ziele werden hier per JS eingefügt -->
             </div>
         </section>
 
@@ -252,6 +260,25 @@
 
   <template id="template-media-detail-modal">
      </template>
+
+  <template id="template-wishlist">
+      <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-bold text-gradient">Wunschlisten der Familie</h2>
+          <button class="cta-primary-glow" onclick="window.openAddWishModal()">
+              <i data-lucide="plus" class="w-5 h-5 mr-2"></i>Neuer Wunsch
+          </button>
+      </div>
+      
+      <div id="wishlist-member-tabs" class="feed-filter-bar mb-6">
+          <div class="spinner"></div>
+      </div>
+      
+      <div id="wishlist-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          </div>
+      <div id="wishlist-empty-state" class="hidden"></div>
+  </template>
+
+  <div id="modal-container"></div>
 
   <script type="module" src="src/main.js"></script>
   

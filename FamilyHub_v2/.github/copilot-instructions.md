@@ -1,107 +1,76 @@
-# FamilyHub v2 - Copilot Instructions
+# Copilot-Anweisungen für FamilyHub v2
 
-This document provides guidance for AI assistants to effectively contribute to the FamilyHub v2 codebase.
+Dieses Dokument leitet KI-Assistenten an, um effektiv zur FamilyHub v2-Codebasis beizutragen.
 
-## Architecture Overview
+## 1. Architekturübersicht
 
-FamilyHub is a client-side, single-page application (SPA) built with vanilla JavaScript, HTML, and Tailwind CSS. It uses Firebase for its backend services, including Authentication, Firestore (database), and Storage.
+FamilyHub ist eine clientseitige Single-Page-Anwendung (SPA), die mit Vanilla JavaScript, HTML und Tailwind CSS erstellt wurde. Sie verwendet Firebase für Backend-Dienste (Auth, Firestore, Storage).
 
-The application is structured in a modular way. Each primary feature (or "page") has its own dedicated JavaScript module in the `src/` directory.
+-   **`index.html`**: Die einzelne HTML-Datei, die als App-Shell fungiert. Sie enthält `<template>`-Elemente für jede "Seite" (z. B. `<template id="template-feed">`).
+-   **`src/main.js`**: Der Einstiegspunkt der App. Er initialisiert die Authentifizierung und das Navigationssystem.
+-   **`src/navigation.js`**: Behandelt das clientseitige Routing, indem es den Inhalt von `<template>` in den Container `<main id="app-content">` lädt.
+-   **`src/firebase.js`**: Zentralisiert alle Firebase-Konfigurationen und Dienstimporte. **Importieren Sie Firebase-Dienste (`db`, `auth`, `storage`) und -Funktionen (`collection`, `onSnapshot`) immer aus dieser Datei.**
+-   **`src/auth.js`**: Simuliert die Benutzerauthentifizierung und stellt Sitzungsdaten (Benutzer, Familien-ID) über `getCurrentUser()` bereit.
+-   **`src/ui.js`**: Ein zentrales Dienstmodul für UI-Interaktionen wie Modals (`openModal`) und Benachrichtigungen (`showNotification`). Feature-Module müssen dieses verwenden, anstatt ihre eigenen zu implementieren.
+-   **`src/components/`**: Enthält wiederverwendbare "dumme" Komponenten, die Daten empfangen und eine HTML-Zeichenfolge zurückgeben. Sie rufen keine eigenen Daten ab.
+-   **Feature-Module (`src/*.js`)**: Jede Datei wie `feed.js` oder `calendar.js` enthält die Logik für ein bestimmtes Feature. Sie rufen Daten ab und verwenden Komponenten, um die Benutzeroberfläche zu rendern.
+-   **`functions/index.js`**: Enthält serverseitige Cloud Functions, die automatisch Feed-Einträge generieren (z. B. wöchentliche Vorschau, Erinnerungen).
 
--   **`index.html`**: The single HTML file that serves as the application's shell. It contains `<template>` elements for each page (e.g., `<template id="template-feed">`).
--   **`src/main.js`**: The main entry point. It initializes authentication and the navigation system.
--   **`src/navigation.js`**: Handles the client-side routing. It dynamically loads page content from the `<template>` tags into the `<main id="app-content">` container based on user actions.
--   **`src/firebase.js`**: Centralizes all Firebase configuration and service imports. All modules that need to interact with Firebase should import from this file, not directly from the Firebase SDK.
--   **`src/components/`**: Contains modules for creating reusable UI components.
--   **`src/` (feature modules)**: Files like `feed.js`, `calendar.js`, and `gallery.js` contain the specific logic for that feature.
+## 2. Entwickler-Workflow
 
-## Developer Workflow
+Um das Projekt auszuführen, benötigen Sie zwei separate Terminalsitzungen:
 
-To run the project for development, you need two separate terminal sessions:
-
-1.  **Start the Tailwind CSS compiler**: This command watches for changes in `input.css` and rebuilds the `output.css` file automatically.
-    ```bash
-    npm run dev:css
-    ```
-
-2.  **Start the local web server**: This serves the `index.html` and other static assets on `http://localhost:8000`.
+1.  **Starten Sie den lokalen Webserver**:
     ```bash
     npm run dev
     ```
+    Dies stellt das Projekt unter `http://localhost:8000` bereit.
 
-You can then open `http://localhost:8000` in your browser.
+2.  **Starten Sie den Tailwind CSS-Compiler**:
+    ```bash
+    npm run dev:css
+    ```
+    Dies überwacht CSS-Änderungen und erstellt `output.css` neu.
 
-## Code Conventions & Patterns
+## 3. Wichtige Muster & Konventionen
 
-### Navigation
+### Daten- & Sicherheitsmodell
 
--   Navigation is handled by `data-page` attributes on clickable elements (buttons, links).
--   A global click listener in `main.js` intercepts clicks on these elements and calls the `navigateTo(pageName)` function from `src/navigation.js`.
--   To add a new page:
-    1.  Create a new `<template id="template-yourpage">` in `index.html`.
-    2.  Create a corresponding `src/yourpage.js` module.
-    3.  Add a `data-page="yourpage"` attribute to a navigation element.
-    4.  The `navigation.js` module will automatically handle showing the new page.
+-   **Datentrennung**: Firestore-Daten sind streng nach Familie getrennt. Die erforderliche Struktur ist `/families/{familyId}/{subcollection}` (z. B. `/families/demo-family/posts`). Alle Datenabfragen müssen diese Grenze erzwingen.
+-   **Zugriff auf Sitzungsdaten**: Um die ID des aktuellen Benutzers oder die Familien-ID zu erhalten, verwenden Sie die Funktion `getCurrentUser()` aus `src/auth.js`.
 
-### Styling with Tailwind CSS
+### Navigation & Zustandsverwaltung
 
--   The project uses a combination of Tailwind's utility classes and custom CSS variables for theming.
--   Core theme colors, gradients, and shadows are defined as CSS variables in `input.css`.
--   These variables are then mapped to Tailwind's configuration in `tailwind.config.js`. This allows using standard Tailwind classes (e.g., `bg-primary-bg`, `text-text-main`) that are powered by our custom theme.
--   When adding new theme-related colors or styles, first add them as a CSS variable in `input.css`, then expose it in `tailwind.config.js`.
+-   **Navigation auslösen**: Die Navigation wird durch `data-page`-Attribute auf klickbaren Elementen ausgelöst. Ein globaler Klick-Listener in `main.js` ruft `navigateTo(pageName)` auf.
+-   **Listener-Verwaltung**: Um Speicherlecks zu vermeiden, müssen Firestore `onSnapshot`-Listener verwaltet werden. Die `render<Page>(pageListeners)`-Funktion für jede Seite erhält ein `pageListeners`-Objekt. Die `unsubscribe`-Funktion Ihres Listeners muss diesem Objekt hinzugefügt werden. `navigation.js` kümmert sich um die Bereinigung bei Seitenwechseln.
+    ```javascript
+    // Beispiel in einem Feature-Modul (z. B. feed.js)
+    export function renderFeed(pageListeners) {
+      // ...
+      const q = query(collection(db, `families/${familyId}/posts`));
+      // Registrieren Sie die unsubscribe-Funktion zur Bereinigung
+      pageListeners.posts = onSnapshot(q, (snapshot) => {
+        // ... UI aktualisieren
+      });
+    }
+    ```
 
-### Firebase Integration
+### Styling
 
--   All Firebase services (`db`, `auth`, `storage`) and functions (`collection`, `onSnapshot`, etc.) are exported from `src/firebase.js`.
--   Feature modules should **always** import these from `src/firebase.js`. This ensures a single, consistent Firebase configuration.
+-   Das Projekt verwendet ein Theming-System, bei dem CSS-Variablen aus `input.css` (z. B. `--background-main`) auf die Konfiguration von Tailwind in `tailwind.config.js` abgebildet werden (z. B. `primary-bg`). Um eine neue Themenfarbe hinzuzufügen, definieren Sie sie zuerst in `input.css` und machen Sie sie dann in der Konfigurationsdatei verfügbar.
 
-**Example: Subscribing to Firestore data in a feature module**
-```javascript
-// In, for example, src/feed.js
-import { db, collection, query, onSnapshot, orderBy } from './firebase.js';
+### Fehlerbehandlung
 
-const postsQuery = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+-   Alle asynchronen Firebase-Operationen (`addDoc`, `deleteDoc` usw.) müssen in `try...catch`-Blöcke eingeschlossen werden.
+-   Geben Sie bei Fehlern Benutzerfeedback, indem Sie `showNotification(message, 'error')` aus `src/ui.js` aufrufen.
 
-onSnapshot(postsQuery, (snapshot) => {
-  // Update the UI with new posts
-});
-```
-. Fundament der Sicherheit: Firestore-Regeln & Datenstruktur
-Der wichtigste Aspekt eines digitalen Zuhauses ist der Schutz der Privatsphäre. Die Anleitung muss die Datenarchitektur und ihre Sicherheitsimplikationen hervorheben.
+### Feed-Post-Typen
 
-Standard-Verweigerung: Jeglicher Zugriff auf Firestore muss standardmäßig verweigert werden. Die Entwicklung darf niemals mit allow read, write: if true; erfolgen, sondern muss von Anfang an auf authentifizierte Benutzer beschränkt sein.
+Der Feed ist ein Aggregator für verschiedene Arten von Inhalten, die durch das Feld `type` im Post-Dokument unterschieden werden:
+-   `type: 'post'`: Ein Standard-Benutzerbeitrag.
+-   `type: 'forecast'`: Eine wöchentliche Vorschau, die von einer Cloud Function in `functions/index.js` generiert wird.
+-   `type: 'memory'`: Ein "An diesem Tag"-Beitrag, der von einer Cloud Function generiert wird.
+-   `type: 'event'`: (Vorgeschlagen) Ein Proxy-Beitrag, der erstellt wird, wenn ein Kalenderereignis hinzugefügt wird.
+-   `type: 'gallery_upload'`: (Vorgeschlagen) Ein Proxy-Beitrag für neue Galerie-Uploads.
 
-Daten-Silostruktur: Unsere Architektur (wie in feed.js, gallery.js und pinnwand.js implementiert) isoliert Daten pro Familie. Die kanonische Struktur lautet:
-
-/families/{familyId}/{subcollection}
-(z. B. /families/demo-family-id-456/posts). Die Sicherheitsregeln müssen diese Struktur widerspiegeln und sicherstellen, dass ein Benutzer nur auf die familyId zugreifen kann, die in seinem /users/{userId}-Dokument hinterlegt ist.
-
-2. Zentrale Dienstprogramme: Die 'Service-Schicht'
-Ein elegantes Haus hat unsichtbare, zentrale Dienstprogramme. In unserer App sind dies die Module auth.js und ui.js.
-
-Keine lokalen UI-Funktionen: Module wie feed.js dürfen niemals ihre eigenen Modals oder Benachrichtigungen implementieren. Sie müssen die zentralen Funktionen (openModal, showNotification, showButtonSpinner) aus src/ui.js importieren.
-
-Zentraler Auth-Status: Der simulierte (oder später echte) Benutzerstatus wird ausschließlich von src/auth.js verwaltet. Jedes Modul, das Benutzerdaten benötigt (currentUser, currentFamilyId, membersData), muss diese über die getCurrentUser()-Funktion beziehen.
-
-3. Stabilität & Langlebigkeit: Das Listener-Management
-Ein Premium-SPA darf keine "digitalen Geister" (Memory Leaks) hinterlassen. Die Anleitung muss unseren Mechanismus zur Listener-Bereinigung vorschreiben.
-
-Keine lokalen Listener: Module dürfen ihre Firestore onSnapshot-Listener nicht unkontrolliert starten.
-
-Zentrales Management: Die MapsTo-Funktion in src/navigation.js übergibt ein pageListeners-Objekt an jede render-Funktion (z.B. renderFeed(pageListeners)). Der Unsubscribe-Callback des Listeners muss in diesem Objekt registriert werden (z.B. listeners.posts = onSnapshot(...)).
-
-Bereinigung: navigation.js ruft cleanupListeners() bei jedem Seitenwechsel auf, um die Stabilität der App zu gewährleisten.
-
-4. Ästhetische Kohärenz: Die Komponenten-Philosophie
-Unser "Sophisticated Glow" wird durch eine strikte Trennung von Logik und Präsentation erreicht.
-
-Komponenten sind "dumm": Module in src/components/ (wie Card.js) sind reine "Schaufensterpuppen". Sie erhalten Daten (props) und geben einen HTML-String zurück, der unsere Design-System-Klassen (glass-premium, btn-filter) verwendet. Sie enthalten keine eigene Logik oder Datenabrufe.
-
-Module sind "schlau": Die Feature-Module (z.B. feed.js, gallery.js) sind die "Gehirne". Sie rufen Daten ab (onSnapshot), verarbeiten die Logik (z.B. getTimeAgo) und übergeben die Daten dann an die "dummen" Komponenten, um das UI zu erstellen.
-
-5. Robustheit & Eleganz: Fehlerbehandlung
-Ein Premium-Erlebnis scheitert nicht lautlos.
-
-Datenbankfehler: Alle asynchronen Firebase-Operationen (addDoc, deleteDoc) oder Listener (onSnapshot) müssen in try...catch-Blöcken oder mit einem .catch()-Handler versehen sein.
-
-Benutzer-Feedback: Im Fehlerfall (z. B. FirebaseError: Missing or insufficient permissions oder 400 Bad Request) darf die App nicht abstürzen. Stattdessen muss die showNotification(message, 'error')-Funktion aufgerufen werden, um dem Benutzer eine klare, elegante Fehlermeldung zu geben.
+Die Komponente `Card.js` sollte Logik enthalten, um diese verschiedenen Typen zu erkennen und sie entsprechend zu rendern.

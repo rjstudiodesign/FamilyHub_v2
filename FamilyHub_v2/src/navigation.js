@@ -15,6 +15,7 @@ import { renderPinnwand } from './pinnwand.js';
 import { renderMonthView } from './calendar.js';
 import { renderGallery } from './gallery.js';
 import { renderSettings } from './settings.js';
+import { renderWishlist } from './wishlist.js';
 
 // Platzhalter-Funktionen (nur noch für fehlende Module)
 const renderChat = () => console.log('renderChat() aufgerufen');
@@ -48,12 +49,12 @@ const routes = {
 		title: 'Pinnwand',
 		icon: 'kanban-square'
 	},
-	'gallery': {
-		templateId: 'template-gallery',
-		init: renderGallery, // NEU: Echte Funktion
-		title: 'Galerie',
-		icon: 'images'
-	},
+	'wishlist': {
+            templateId: 'template-wishlist',
+            init: renderWishlist,
+            title: 'Wunschlisten',
+            icon: 'gift'
+        },
 	'challenges': {
 		templateId: 'template-challenges',
 		init: renderChallenges,
