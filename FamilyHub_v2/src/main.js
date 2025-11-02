@@ -5,6 +5,7 @@ import './calendar.js';
 import './gallery.js';
 import './navigation.js';
 import './settings.js';
+import './chat.js';
 import { initAuth } from './auth.js';
 
 // Navigationsfunktion aus navigation.js holen

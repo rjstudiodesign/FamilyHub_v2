@@ -16,9 +16,9 @@ import { renderMonthView } from './calendar.js';
 import { renderGallery } from './gallery.js';
 import { renderSettings } from './settings.js';
 import { renderWishlist } from './wishlist.js';
+import { renderChat } from './chat.js';
 
 // Platzhalter-Funktionen (nur noch für fehlende Module)
-const renderChat = () => console.log('renderChat() aufgerufen');
 const renderChallenges = () => console.log('renderChallenges() aufgerufen');
 const renderChronik = () => console.log('Chronik gerendert'); // NEU: Platzhalter für Chronik
 
@@ -83,6 +83,7 @@ const pageListeners = {
 		posts: null,
 		family: null,
 		gallery: null,
+		chats: null,
 		// Fügen Sie hier weitere Listener-Keys bei Bedarf hinzu
 };
 

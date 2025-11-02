@@ -241,4 +241,53 @@
       .expense-avatar {
           @apply inline-block h-6 w-6 rounded-full ring-2 ring-primary-bg;
       }
+
+    /* --- J. Chat-Komponenten --- */
+      .chat-list-item {
+          @apply flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200;
+      }
+      .chat-list-item:hover, .chat-list-item.active {
+          @apply bg-white/10;
+      }
+      .chat-list-avatar {
+          @apply w-12 h-12 rounded-full object-cover;
+      }
+      .chat-list-unread-badge {
+          @apply w-3 h-3 bg-primary-rose rounded-full ml-auto;
+          box-shadow: var(--shadow-glow);
+      }
+
+      /* Nachrichten-Sprechblasen */
+      .chat-bubble {
+          @apply p-3 rounded-xl max-w-xs md:max-w-md;
+          width: fit-content;
+      }
+      .chat-bubble-other {
+          @apply bg-white/10 rounded-bl-lg; /* Andere */
+          align-self: flex-start;
+      }
+      .chat-bubble-own {
+          @apply bg-primary-rose/80 text-white rounded-br-lg; /* Eigene */
+          align-self: flex-end;
+      }
+      .chat-message-container {
+          @apply flex flex-col;
+      }
+      .chat-message-sender {
+          @apply text-xs text-secondary mb-1;
+      }
+
+    /* --- K. Chat-Erstellungs-Modal --- */
+      .member-select-item {
+          @apply flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 border border-border-glass;
+      }
+      .member-select-item:hover {
+          @apply bg-white/10;
+      }
+      .member-select-item.selected {
+          @apply bg-primary-rose/20 border-primary-rose ring-2 ring-primary-rose;
+      }
+      .member-select-avatar {
+          @apply w-10 h-10 rounded-full object-cover;
+      }
 }
