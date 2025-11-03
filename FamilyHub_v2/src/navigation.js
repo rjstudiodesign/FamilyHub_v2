@@ -12,7 +12,7 @@
 import { renderFeed } from './feed.js';
 import { renderPinnwand } from './pinnwand.js';
 // NEU: Echte Modul-Imports
-import { renderMonthView } from './calendar.js';
+import { renderCalendar } from './calendar.js';
 import { renderGallery } from './gallery.js';
 import { renderSettings } from './settings.js';
 import { renderWishlist } from './wishlist.js';
@@ -39,7 +39,7 @@ const routes = {
 	},
 		'calendar': {
 			templateId: 'template-calendar',
-			init: renderMonthView, // NEU: Monatsansicht als Initialisierung
+			init: renderCalendar,
 			title: 'Kalender',
 			icon: 'calendar-days'
 		},

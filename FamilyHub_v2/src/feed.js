@@ -1,875 +1,819 @@
-// src/feed.js
-// KONSOLIDIERTE VERSION (Vollständiger Ersatz)
-
 // --- 1. IMPORTE ---
-import {
-    db, auth,
-    collection, query, onSnapshot, orderBy, getDocs, where,
-    doc, deleteDoc, runTransaction, serverTimestamp, addDoc,
-    ref, uploadBytesResumable, getDownloadURL
-} from './firebase.js';
+import { 
+    db, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, 
+    uploadBytesResumable, ref, getDownloadURL, doc, updateDoc, increment, arrayUnion, 
+    arrayRemove, runTransaction, where
+} from './firebase.js'; // KORRIGIERT: uploadBytesResumable, arrayRemove
 import { getCurrentUser } from './auth.js';
+import { showNotification, closeModal, showButtonSpinner, hideButtonSpinner } from './ui.js'; // KORRIGIERT: Importiert ui.js
+import { render, append } from './components/index.js'; // KORREKTUR: Importiert aus index.js
 import {
-    showNotification,
-    openModal,
-    closeModal,
-    showButtonSpinner,
-    hideButtonSpinner
-} from './ui.js';
-
-// Komponenten-Importe
-import { PostCard, EmptyStateCard, SkeletonCard } from './components/Card.js';
-import { GratitudeTrigger, GratitudeCard } from './components/Gratitude.js';
-import { PollCard } from './components/PollCard.js'; // NEU
-import { GoalTrackerWidget } from './components/Goals.js'; // NEU
-import { ExpenseCard } from './components/ExpenseCard.js'; // NEU
-
-// Util-Importe
+    PostCard, EmptyStateCard, SkeletonCard, Card, InfoCard
+} from './components/Card.js';
+// KORREKTUR: Button.js Import-Block komplett entfernt
 import { getTimeAgo } from './utils/formatters.js';
 
-// --- 2. GLOBALE VARIABLEN & ZUSTAND ---
-let posts = [];
-let membersMap = {};
-let currentFilter = 'all';
-let postsUnsubscribe = null; // Um den Listener zu verwalten
-let goalsUnsubscribe = null; // Listener für Ziele
+// Importiere die neuen Komponenten-Logiken
+import { PollCard } from './components/PollCard.js';
+import { GratitudeCard, GratitudeTrigger } from './components/Gratitude.js';
+import { GoalTrackerWidget } from './components/Goals.js';
+import { ExpenseCard } from './components/ExpenseCard.js';
 
-// --- 3. INITIALISIERUNG & KERNLOGIK ---
+// --- 2. GLOBALE KOMPONENTEN-REFERENZEN ---
+if (!window.PollCard) window.PollCard = PollCard;
+if (!window.GratitudeCard) window.GratitudeCard = GratitudeCard;
+if (!window.ExpenseCard) window.ExpenseCard = ExpenseCard;
 
-/**
- * Hauptfunktion zum Rendern des Feeds.
- * Wird von navigation.js aufgerufen.
- * @param {object} listeners - Ein Objekt zur Verwaltung von Firestore-Listenern.
- */
+// --- 3. MODUL-VARIABLEN (Top-Level Scope) ---
+let postImageFile = null;
+let selectedParticipants = [];
+
+// --- 4. HAUPT-RENDER-FUNKTION (Wird bei Navigation aufgerufen) ---
 export function renderFeed(listeners) {
-    const feedContainer = document.getElementById('feed-posts-container');
-    if (!feedContainer) {
-        console.error("Feed-Container nicht gefunden.");
+    const { currentFamilyId, currentUser } = getCurrentUser();
+    if (!currentFamilyId || !currentUser) return;
+
+    const postsContainer = document.getElementById('feed-posts-container');
+    const gratitudeContainer = document.getElementById('gratitude-trigger-container');
+    const goalsContainer = document.getElementById('goal-widget-container');
+
+    if (!postsContainer || !gratitudeContainer || !goalsContainer) {
+        console.error("Feed-Template-Struktur nicht gefunden.");
         return;
     }
 
-    showFeedSkeleton(feedContainer);
-    setupEventListeners();
+    render(GratitudeTrigger(), gratitudeContainer);
+    
+    const goalsQuery = query(collection(db, 'families', currentFamilyId, 'familyGoals'), orderBy('title'));
+    listeners.goals = onSnapshot(goalsQuery, (snapshot) => {
+        const goals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        render(GoalTrackerWidget(goals), goalsContainer);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }, (error) => console.error("Error loading goals:", error));
 
-    // Alte Listener beenden, da wir sie neu aufsetzen
-    if (listeners.publicPosts) listeners.publicPosts();
-    if (listeners.privatePosts) listeners.privatePosts();
-    if (listeners.goals) listeners.goals();
+    showFeedSkeleton(postsContainer);
 
-    const { currentUser, currentFamilyId } = getCurrentUser();
-    if (!currentFamilyId || !currentUser) {
-        feedContainer.innerHTML = EmptyStateCard("Keine Familie", "Bitte melde dich neu an.", "alert-triangle");
-        return;
-    }
-
-    // Mitgliederdaten einmalig laden
-    fetchMembersData(currentFamilyId);
-
-    // --- ECHTZEIT-REPARATUR ---
     let publicPosts = [];
     let privatePosts = [];
     let combinedLoaded = { public: false, private: false };
 
     const renderCombinedPosts = () => {
-        if (!combinedLoaded.public || !combinedLoaded.private) {
-            // Warte, bis beide Listener mindestens einmal geladen haben, um ein Flackern zu vermeiden
+        if (!combinedLoaded.public || !combinedLoaded.private) return;
+
+        const allPosts = [...publicPosts, ...privatePosts]
+            .sort((a, b) => {
+                const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+                const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+                return dateB - dateA;
+            });
+            
+        const uniquePosts = Array.from(new Map(allPosts.map(p => [p.id, p])).values());
+
+        if (uniquePosts.length === 0) {
+            const createButton = `
+                <button class="cta-primary-glow inline-flex items-center gap-2 px-8 py-3 text-lg" onclick="window.openCreatePostModal()">
+                    <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                    <span>Ersten Beitrag erstellen</span>
+                </button>
+            `;
+            const emptyStateHTML = EmptyStateCard(
+                'Willkommen bei FamilyHub!',
+                'Beginnt jetzt, besondere Momente zu teilen.',
+                '<i data-lucide="users" class="w-12 h-12 text-[#A04668]"></i>',
+                createButton
+            );
+            render(emptyStateHTML, postsContainer);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
         }
 
-        const allPosts = [...publicPosts, ...privatePosts];
-        
-        // Dedupliziere Posts, falls es Überschneidungen gibt
-        const uniquePostsMap = new Map();
-        allPosts.forEach(post => uniquePostsMap.set(post.id, post));
-        const uniquePosts = Array.from(uniquePostsMap.values());
-
-        // Sortiere die zusammengeführten Posts nach Datum
-        uniquePosts.sort((a, b) => {
-            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-            return dateB - dateA;
+        postsContainer.innerHTML = '';
+        uniquePosts.forEach(post => {
+            const postElement = createPostElement(post);
+            postsContainer.appendChild(postElement);
         });
-        
-        posts = uniquePosts; // Aktualisiere die globale Variable für die Filterung
-        renderFilteredPosts(feedContainer);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     };
 
-    const postsCollection = collection(db, 'families', currentFamilyId, 'posts');
-
-    // Listener 1: Öffentliche Posts (alles, was kein 'expense' ist)
     const publicPostsQuery = query(
-        postsCollection,
-        where('type', '!=', 'expense'),
-        orderBy('type'), // Notwendig für den != Filter
+        collection(db, 'families', currentFamilyId, 'posts'),
+        where('participants', '==', null),
         orderBy('createdAt', 'desc')
     );
-
     listeners.publicPosts = onSnapshot(publicPostsQuery, (snapshot) => {
         publicPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         combinedLoaded.public = true;
         renderCombinedPosts();
-    }, (error) => {
-        console.error("Fehler beim Laden öffentlicher Posts:", error);
-        showNotification("Fehler beim Laden der öffentlichen Posts.", "error");
-    });
-
-    // Listener 2: Private Ausgaben, an denen der Nutzer beteiligt ist
+    }, (error) => console.error("Error public posts:", error));
+    
     const privatePostsQuery = query(
-        postsCollection,
-        where('type', '==', 'expense'),
+        collection(db, 'families', currentFamilyId, 'posts'),
         where('participants', 'array-contains', currentUser.uid),
         orderBy('createdAt', 'desc')
     );
-
     listeners.privatePosts = onSnapshot(privatePostsQuery, (snapshot) => {
         privatePosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         combinedLoaded.private = true;
         renderCombinedPosts();
-    }, (error) => {
-        console.error("Fehler beim Laden privater Posts:", error);
-        // Hier wird bewusst kein Fehler angezeigt, da es normal sein kann, keine privaten Posts zu haben.
-    });
-    // --- ENDE ECHTZEIT-REPARATUR ---
-
-    // Listener für Ziele (bleibt unverändert)
-    const goalsQuery = query(
-        collection(db, 'families', currentFamilyId, 'familyGoals'),
-        orderBy('createdAt', 'desc')
-    );
-
-    listeners.goals = onSnapshot(goalsQuery, (snapshot) => {
-        const goals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const goalWidgetContainer = document.getElementById('goal-widget-container');
-        if (goalWidgetContainer) {
-            goalWidgetContainer.innerHTML = GoalTrackerWidget(goals);
-            const createGoalBtn = goalWidgetContainer.querySelector('#create-goal-from-widget');
-            if(createGoalBtn) {
-                createGoalBtn.onclick = () => window.navigateTo('settings', 'goals');
-            }
-        }
-    }, (error) => {
-        console.error("Fehler beim Laden der Ziele:", error);
-        const goalWidgetContainer = document.getElementById('goal-widget-container');
-        if (goalWidgetContainer) {
-            goalWidgetContainer.innerHTML = `<div class="p-4 text-sm text-red-500">Ziele konnten nicht geladen werden.</div>`;
-        }
-    });
+    }, (error) => console.error("Error private posts:", error));
 }
 
-/**
- * Zeigt ein Lade-Skelett an, während die Daten abgerufen werden.
- * @param {HTMLElement} container - Das Container-Element für den Feed.
- */
+// --- 5. INTERNE HILFSFUNKTIONEN (Nicht-Global) ---
+
+function createPostElement(post) {
+    const { currentUser } = getCurrentUser();
+    const author = post.authorName || 'Unbekannt';
+    const avatar = post.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(author)}&background=0A0908&color=F2F4F3&bold=true`;
+    const timeAgo = post.createdAt ? getTimeAgo(post.createdAt.toDate()) : 'Gerade eben';
+
+    const postCardData = {
+        authorName: author,
+        authorAvatar: avatar,
+        timestamp: timeAgo,
+        content: post.text,
+        imageUrl: post.imageUrl || '',
+        postId: post.id,
+        authorId: post.authorId,
+        post: post, 
+        actions: [
+            {
+                icon: '<i data-lucide="heart" class="w-5 h-5"></i>',
+                count: post.likes || 0,
+                onClick: `toggleLike('${post.id}', this)`,
+                active: post.likedBy && post.likedBy.includes(currentUser.uid) 
+            },
+            {
+                icon: '<i data-lucide="message-circle" class="w-5 h-5"></i>',
+                count: post.commentCount || 0,
+                onClick: `openComments('${post.id}')`,
+                active: false
+            },
+            {
+                icon: '<i data-lucide="share-2" class="w-5 h-5"></i>',
+                count: null,
+                onClick: `sharePost('${post.id}')`,
+                active: false,
+                className: 'ml-auto'
+            }
+        ]
+    };
+
+    if (post.type === 'gratitude' || post.type === 'expense') {
+        postCardData.actions = [];
+    }
+
+    const postElement = document.createElement('div');
+    postElement.className = 'animate-slide-in-up mb-6'; 
+    postElement.innerHTML = PostCard(postCardData); 
+
+    if (postCardData.actions.length > 0 && postCardData.actions[0].active) {
+        const likeBtn = postElement.querySelector(`button[onclick*="toggleLike"]`);
+        if (likeBtn) likeBtn.classList.add('active');
+    }
+    return postElement;
+}
+
 function showFeedSkeleton(container) {
-    container.innerHTML = `${SkeletonCard()}${SkeletonCard()}`;
+    const skeletonHTML = Array(3).fill(SkeletonCard({ lines: 3, hasImage: true })).join('');
+    render(skeletonHTML, container);
 }
 
-/**
- * Filtert und rendert die Beiträge basierend auf dem aktuellen Filter.
- * @param {HTMLElement} container - Das Container-Element für den Feed.
- */
-function renderFilteredPosts(container) {
-    container.innerHTML = ''; // Leert den Container vor dem Neuzeichnen
-
-    const filtered = posts.filter(post => {
-        if (currentFilter === 'all') return true;
-        // 'expense' Posts sollen nur im 'all' Filter erscheinen, da sie privat sind
-        if (post.type === 'expense') return currentFilter === 'all';
-        return post.type === currentFilter;
-    });
-
-    if (filtered.length === 0) {
-        container.innerHTML = EmptyStateCard("Keine Beiträge", "Hier ist es noch leer. Erstelle den ersten Beitrag!", "inbox");
-    } else {
-        filtered.forEach(post => {
-            const timeAgo = post.createdAt?.toDate ? getTimeAgo(post.createdAt.toDate()) : 'Gerade eben';
-            if (post.type === 'expense') {
-                container.innerHTML += ExpenseCard(post);
-            } else {
-                // PostCard rendert jetzt alle anderen Post-Typen
-                container.innerHTML += PostCard(post, timeAgo, membersMap);
-            }
-        });
-    }
-    // Wichtig: Lucide-Icons nach dem Rendern neu initialisieren
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
-}
-
-// --- 4. EVENT-LISTENER & INTERAKTIONS-SETUP ---
-
-/**
- * Richtet alle notwendigen Event-Listener für die Feed-Seite ein.
- * Wird nur einmal aufgerufen, um doppelte Listener zu vermeiden.
- */
-function setupEventListeners() {
-    // FAB-Button (Neuer Beitrag)
-    const fab = document.getElementById('fab-create-post');
-    if (fab) {
-        fab.onclick = () => openCreatePostModal();
-    }
-
-    // Filter-Buttons
-    const filterContainer = document.getElementById('feed-filter-buttons');
-    if (filterContainer) {
-        filterContainer.onclick = (e) => {
-            const button = e.target.closest('.btn-filter');
-            if (!button) return;
-
-            filterContainer.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            currentFilter = button.dataset.filter;
-            renderFilteredPosts(document.getElementById('feed-posts-container'));
-        };
-    }
+async function loadComments(postId) {
+    const { currentFamilyId } = getCurrentUser();
+    const commentsList = document.getElementById('comments-list-container'); 
+    if (!commentsList) return;
     
-    // Gratitude-Trigger (Dankbarkeit senden)
-    const gratitudeTrigger = document.getElementById('gratitude-trigger-container');
-    if(gratitudeTrigger) {
-        gratitudeTrigger.onclick = (e) => {
-            if (e.target.closest('#gratitude-trigger')) {
-                openGratitudeModal();
+    try {
+        const commentsQuery = query(
+            collection(db, 'families', currentFamilyId, 'posts', postId, 'comments'),
+            orderBy('createdAt', 'desc')
+        );
+        
+        onSnapshot(commentsQuery, (snapshot) => {
+            if (snapshot.empty) {
+                commentsList.innerHTML = EmptyStateCard('Noch keine Kommentare', 'Sei der Erste!', '💬', '');
+                return;
             }
-        };
+            commentsList.innerHTML = '';
+            snapshot.forEach((docSnap) => {
+                const comment = docSnap.data();
+                append(createCommentElement(comment), commentsList);
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
+    } catch (error) {
+        console.error('Error loading comments:', error);
+        commentsList.innerHTML = InfoCard('Fehler', 'Kommentare konnten nicht geladen werden.', '⚠️');
     }
 }
 
-// --- 5. POST-ERSTELLUNG (MODAL & LOGIK) ---
-
-/**
- * Öffnet das Modal zur Erstellung eines neuen Beitrags.
- */
-function openCreatePostModal() {
-    const modalId = 'modal-create-post';
-    let selectedFile = null;
-    let isPollActive = false;
-
-    const modalContent = `
-        <div class="modal-content glass-premium max-w-lg w-full">
-            <h2 class="text-xl font-bold text-gradient mb-6">Neuer Beitrag</h2>
-            <form id="create-post-form" class="space-y-4">
-                <div id="post-image-preview" class="hidden w-full aspect-video rounded-lg bg-background-glass border border-border-glass relative mb-4">
-                    <img id="post-image-preview-img" src="" alt="Vorschau" class="w-full h-full object-contain rounded-lg">
-                    <button type="button" id="post-remove-image" class="icon-button-ghost absolute top-2 right-2 bg-black/50 hover:bg-black/75">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
+function createCommentElement(comment) {
+    const avatar = comment.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.authorName || 'U')}`;
+    const timestamp = comment.createdAt ? getTimeAgo(comment.createdAt.toDate()) : 'gerade eben';
+    
+    const content = `
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <img src="${avatar}" alt="${comment.authorName}" style="width: 40px; height: 40px; border-radius: 50%;">
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span style="font-weight: bold; font-size: 0.9rem;">${comment.authorName}</span>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">${timestamp}</span>
                 </div>
-                <textarea id="post-text-input" class="form-input" rows="5" placeholder="Was gibt's Neues, Familie?"></textarea>
-                <input type="file" id="post-image-input" class="hidden" accept="image/*">
+                <p style="color: var(--text-secondary); white-space: pre-wrap;">${comment.text}</p>
+            </div>
+        </div>
+    `;
+    return Card(content, { variant: 'default', padding: 'md', className: 'animate-fade-in mb-3' });
+}
+
+async function addComment(postId) {
+    const { currentUser, currentUserData, currentFamilyId } = getCurrentUser();
+    const commentInput = document.getElementById('comment-input');
+    const text = commentInput.value.trim();
+    if (!text) return;
+    
+    const submitBtn = document.querySelector('#comment-form button[type="submit"]');
+    showButtonSpinner(submitBtn);
+    
+    try {
+        const postRef = doc(db, 'families', currentFamilyId, 'posts', postId);
+        await addDoc(collection(db, 'families', currentFamilyId, 'posts', postId, 'comments'), {
+            text: text,
+            authorId: currentUser.uid,
+            authorName: currentUserData.name || 'Unbekannt',
+            authorAvatar: currentUser.photoURL || null,
+            createdAt: serverTimestamp()
+        });
+        
+        await updateDoc(postRef, { commentCount: increment(1) });
+        commentInput.value = '';
+        
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        showNotification('Fehler beim Kommentieren', 'error');
+    } finally {
+        hideButtonSpinner(submitBtn);
+        submitBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+}
+
+// --- Creator UI-Logik (Intern) ---
+function togglePollCreator() {
+    const pollUI = document.getElementById('poll-creator-container');
+    const expenseUI = document.getElementById('expense-creator-container');
+    const postText = document.getElementById('post-text-input');
+    const pollBtn = document.getElementById('poll-creator-btn');
+
+    if (pollUI.style.display === 'none') {
+        if (expenseUI.style.display !== 'none') toggleExpenseCreator(); // Schließe Expense
+        pollUI.style.display = 'block';
+        postText.placeholder = 'Deine Umfrage-Frage...';
+        pollBtn.classList.add('active');
+        if (document.getElementById('poll-options').childElementCount === 0) {
+            addPollOption();
+            addPollOption();
+        }
+    } else {
+        pollUI.style.display = 'none';
+        postText.placeholder = 'Was möchtest du teilen?';
+        pollBtn.classList.remove('active');
+    }
+}
+function addPollOption() {
+    const container = document.getElementById('poll-options');
+    if (container.childElementCount >= 5) return showNotification("Maximal 5 Optionen", "warning");
+    
+    const count = container.childElementCount + 1;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex items-center gap-2';
+    
+    const label = document.createElement('label');
+    label.className = 'sr-only'; // Nur für Screenreader sichtbar
+    label.setAttribute('for', `poll_option_${count}`);
+    label.textContent = `Option ${count}`;
+    
+    const optionInput = document.createElement('input');
+    optionInput.type = 'text';
+    optionInput.className = 'form-input poll-option-input flex-1';
+    optionInput.placeholder = `Option ${count}`;
+    optionInput.name = `poll_option_${count}`;
+    optionInput.id = `poll_option_${count}`;
+    optionInput.required = true;
+    
+    wrapper.appendChild(label);
+    wrapper.appendChild(optionInput);
+    container.appendChild(wrapper);
+}
+function toggleExpenseCreator() {
+    const expenseUI = document.getElementById('expense-creator-container');
+    const pollUI = document.getElementById('poll-creator-container');
+    const postText = document.getElementById('post-text-input');
+    const expenseBtn = document.getElementById('expense-creator-btn');
+
+    if (expenseUI.style.display === 'none') {
+        if (pollUI.style.display !== 'none') togglePollCreator(); // Schließe Poll
+        expenseUI.style.display = 'block';
+        postText.placeholder = 'Beschreibung der Ausgabe (z.B. Pizzaessen)';
+        expenseBtn.classList.add('active');
+        renderParticipantSelector();
+    } else {
+        expenseUI.style.display = 'none';
+        postText.placeholder = 'Was möchtest du teilen?';
+        expenseBtn.classList.remove('active');
+    }
+}
+function renderParticipantSelector() {
+    const { membersData, currentUser } = getCurrentUser();
+    const container = document.getElementById('expense-participants');
+    container.innerHTML = '';
+    selectedParticipants = [currentUser.uid]; // Ersteller ist immer dabei
+
+    Object.values(membersData).forEach(member => {
+        const isSelected = selectedParticipants.includes(member.uid);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `flex items-center gap-2 p-1 pr-2 rounded-full transition-all ${isSelected ? 'bg-primary-rose/80 text-white' : 'bg-white/10'}`;
+        btn.dataset.uid = member.uid;
+        btn.onclick = () => toggleParticipant(member.uid);
+        btn.innerHTML = `
+            <img src="${member.photoURL || `https://ui-avatars.com/api/?name=${member.name.charAt(0)}`}" class="w-6 h-6 rounded-full">
+            <span class="text-sm">${member.name}</span>
+        `;
+        container.appendChild(btn);
+    });
+}
+function toggleParticipant(uid) {
+    const { currentUser } = getCurrentUser();
+    if (uid === currentUser.uid) return; // Ersteller kann nicht abgewählt werden
+    
+    const index = selectedParticipants.indexOf(uid);
+    if (index > -1) {
+        selectedParticipants.splice(index, 1);
+    } else {
+        selectedParticipants.push(uid);
+    }
+    renderParticipantSelector(); // Neu rendern, um Auswahl zu zeigen
+}
+
+// --- Interne Submit-Handler ---
+async function handlePollSubmit(event) {
+    const { currentUser, currentUserData, currentFamilyId } = getCurrentUser();
+    const question = document.getElementById('post-text-input').value.trim();
+    if (!question) return showNotification("Bitte eine Frage eingeben", "warning");
+
+    const optionNodes = document.querySelectorAll('.poll-option-input');
+    const options = Array.from(optionNodes).map(input => input.value.trim()).filter(text => text.length > 0);
+    if (options.length < 2) return showNotification("Mindestens 2 Optionen benötigt", "warning");
+
+    const pollData = {
+        type: 'poll',
+        text: question,
+        options: options.map(optText => ({ text: optText, votes: 0 })),
+        votedBy: [],
+        votesMap: {},
+        authorId: currentUser.uid,
+        authorName: currentUserData.name,
+        authorAvatar: currentUser.photoURL || null,
+        createdAt: serverTimestamp(),
+        participants: null // WICHTIG für Query
+    };
+
+    const submitBtn = event.target.closest('form').querySelector('button[type="submit"]');
+    showButtonSpinner(submitBtn);
+
+    try {
+        await addDoc(collection(db, 'families', currentFamilyId, 'posts'), pollData);
+        showNotification("✅ Umfrage gestartet!", "success");
+        closeModal();
+    } catch (error) {
+        console.error("Error creating poll:", error);
+        hideButtonSpinner(submitBtn);
+    }
+}
+
+async function handleExpenseSubmit(event) {
+    const { currentUser, currentUserData, currentFamilyId } = getCurrentUser();
+    const text = document.getElementById('post-text-input').value.trim();
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+
+    if (!text || isNaN(amount) || amount <= 0) {
+        return showNotification("Bitte Betrag und Beschreibung eingeben", "warning");
+    }
+    if (selectedParticipants.length === 0) {
+        return showNotification("Bitte Teilnehmer auswählen", "warning");
+    }
+
+    const expenseData = {
+        type: 'expense',
+        text: text,
+        amount: amount,
+        participants: selectedParticipants, // Array von UIDs
+        authorId: currentUser.uid,
+        authorName: currentUserData.name,
+        authorAvatar: currentUser.photoURL || null,
+        createdAt: serverTimestamp()
+    };
+
+    const submitBtn = event.target.closest('form').querySelector('button[type="submit"]');
+    showButtonSpinner(submitBtn);
+
+    try {
+        await addDoc(collection(db, 'families', currentFamilyId, 'posts'), expenseData);
+        showNotification("✅ Ausgabe erfasst!", "success");
+        closeModal();
+    } catch (error) {
+        console.error("Error creating expense:", error);
+        hideButtonSpinner(submitBtn);
+    }
+}
+
+// --- 6. GLOBALE FUNKTIONEN (Nur EINMAL deklariert) ---
+
+if (!window.handlePostSubmit) {
+    window.handlePostSubmit = async (event) => {
+        event.preventDefault();
+        const { currentUser, currentUserData, currentFamilyId } = getCurrentUser();
+        if (!currentUser || !currentUserData) return showNotification("Fehler: Nicht angemeldet.", "error");
+
+        const isPoll = document.getElementById('poll-creator-container')?.style.display !== 'none';
+        if (isPoll) return handlePollSubmit(event);
+        
+        const isExpense = document.getElementById('expense-creator-container')?.style.display !== 'none';
+        if (isExpense) return handleExpenseSubmit(event);
+
+        const text = document.getElementById('post-text-input').value;
+        if (!text.trim() && !postImageFile) {
+            return showNotification("Bitte gib einen Text ein oder wähle ein Bild aus.", "warning");
+        }
+
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const originalBtnHTML = submitBtn.innerHTML;
+        showButtonSpinner(submitBtn);
+
+        try {
+            let imageUrl = null;
+            if (postImageFile) {
+                const { storage } = await import('./firebase.js'); // Importiert Storage
+                const storageRef = ref(storage, `posts/${currentFamilyId}/${Date.now()}_${postImageFile.name}`);
+                const snapshot = await uploadBytesResumable(storageRef, postImageFile); // KORREKTUR
+                imageUrl = await getDownloadURL(snapshot.ref);
+            }
+            await addDoc(collection(db, 'families', currentFamilyId, 'posts'), {
+                type: 'post',
+                text: text,
+                imageUrl: imageUrl,
+                authorId: currentUser.uid,
+                authorName: currentUserData.name,
+                authorAvatar: currentUser.photoURL || null,
+                createdAt: serverTimestamp(),
+                likes: 0,
+                commentCount: 0,
+                likedBy: [],
+                participants: null // WICHTIG für die Query
+            });
+            showNotification("✅ Beitrag erfolgreich geteilt!", "success");
+            closeModal();
+        } catch (error) {
+            console.error("Error creating post:", error);
+            showNotification("Fehler beim Erstellen des Beitrags.", "error");
+            hideButtonSpinner(submitBtn);
+            submitBtn.innerHTML = originalBtnHTML;
+        }
+    };
+}
+
+if (!window.openCreatePostModal) {
+    window.openCreatePostModal = () => {
+        const modalId = 'modal-create-post';
+        const modalFormContent = `
+            <form id="create-post-form" class="modal-content-scrollable" onsubmit="window.handlePostSubmit(event)" style="display: flex; flex-direction: column; height: 100%;">
                 
-                <div id="poll-composer-container"></div>
-                <div id="expense-creator-container" style="display: none;" class="space-y-4 glass-premium p-4 rounded-lg">
-                    <label class="text-sm text-secondary">Private Ausgabe erfassen:</label>
-                    <input type="number" id="expense-amount" class="form-input" placeholder="Betrag (€)" min="0.01" step="0.01" required>
-                    <label class="text-sm text-secondary">Wer war dabei? (Inklusive dir)</label>
-                    <div id="expense-participants" class="flex flex-wrap gap-2">
+                <div class="flex-shrink-0">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gradient">Neuer Beitrag</h2>
+                        <button type="button" class="icon-button-ghost p-2 -mr-2 -mt-2" data-action="close-modal">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
                     </div>
                 </div>
-
-                <div class="flex justify-between items-center pt-4 border-t border-border-glass">
-                    <div class="flex gap-2">
-                        <button type="button" id="post-image-trigger" class="icon-button-ghost" title="Bild hinzufügen">
-                            <i data-lucide="image" class="w-5 h-5"></i>
-                        </button>
-                        <button type="button" id="post-poll-trigger" class="icon-button-ghost" title="Umfrage erstellen">
-                            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-                        </button>
-                        <button type="button" id="expense-creator-btn" class="icon-button-ghost" title="Ausgabe erfassen" onclick="window.toggleExpenseCreator()">
-                            <i data-lucide="receipt" class="w-5 h-5"></i>
-                        </button>
+                
+                <div class="flex-grow overflow-y-auto pr-2 space-y-4">
+                    <label for="post-text-input" class="sr-only">Beitragstext</label>
+                    <textarea id="post-text-input" class="form-input min-h-[120px] resize-none" placeholder="Was möchtest du deiner Familie mitteilen?" required></textarea>
+                    
+                    <div id="poll-creator-container" style="display: none;" class="space-y-2">
+                        <label class="text-sm text-secondary">Umfrage-Optionen:</label>
+                        <div id="poll-options" class="space-y-2"></div>
+                        <button type="button" class="btn-secondary text-xs" onclick="addPollOption()">+ Option hinzufügen</button>
                     </div>
-                    <div class="flex gap-3">
-                        <button type="button" class="btn-secondary" data-action="close-modal">Abbrechen</button>
-                        <button type="submit" id="create-post-submit" class="cta-primary-glow">
+
+                    <div id="expense-creator-container" style="display: none;" class="space-y-4 glass-premium p-4 rounded-lg">
+                        <label for="expense-amount" class="text-sm text-secondary">Private Ausgabe erfassen:</label>
+                        <input type="number" id="expense-amount" name="expense-amount" class="form-input" placeholder="Betrag (€)" min="0.01" step="0.01">
+                        <label class="text-sm text-secondary">Wer war dabei? (Inklusive dir)</label>
+                        <div id="expense-participants" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div id="post-image-preview-container" class="hidden relative rounded-xl overflow-hidden border border-border-glass">
+                        <img id="post-image-preview" class="w-full max-h-64 object-cover" alt="Vorschau">
+                        <div class="absolute top-3 right-3">
+                            <button type="button" onclick="removePostImage()" class="w-8 h-8 bg-black/60 hover:bg-red-500 rounded-full flex items-center justify-center transition-all backdrop-blur-sm group">
+                                <i data-lucide="trash-2" class="w-5 h-5 text-white/80 group-hover:text-white"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex-shrink-0 pt-4 mt-4 border-t border-border-glass">
+                    <div class="flex items-center gap-2" style="justify-content: flex-start;">
+                        <label class="btn-secondary cursor-pointer gap-2">
+                            <i data-lucide="image" class="w-5 h-5"></i>
+                            <span>Foto</span>
+                            <input type="file" accept="image/*" onchange="handlePostImageSelect(event)" class="hidden">
+                        </label>
+                        <button type="button" id="poll-creator-btn" class="btn-secondary gap-2" onclick="togglePollCreator()">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                            <span>Umfrage</span>
+                        </button>
+                        <button type="button" id="expense-creator-btn" class="btn-secondary gap-2" onclick="toggleExpenseCreator()">
+                            <i data-lucide="receipt" class="w-5 h-5"></i>
+                            <span>Ausgabe</span>
+                        </button>
+                        <button type="submit" class="cta-primary-glow flex items-center gap-2 ml-auto">
                             <span class="btn-text">Posten</span>
+                            <i data-lucide="send" class="w-5 h-5"></i>
                         </button>
                     </div>
                 </div>
             </form>
-        </div>
-    `;
-    
-    openModal(modalContent, modalId);
-
-    // Event-Handler für das neue Modal-Inhalt registrieren
-    const form = document.getElementById('create-post-form');
-    const imageInput = document.getElementById('post-image-input');
-    const imageTrigger = document.getElementById('post-image-trigger');
-    const pollTrigger = document.getElementById('post-poll-trigger');
-    const expenseTrigger = document.getElementById('expense-creator-btn'); // NEU
-
-    imageTrigger.onclick = () => imageInput.click();
-    imageInput.onchange = (e) => handleImagePreview(e.target.files[0], selectedFile);
-    
-    document.getElementById('post-remove-image').onclick = () => {
-        selectedFile = null;
-        imageInput.value = '';
-        document.getElementById('post-image-preview').classList.add('hidden');
-        document.getElementById('post-image-preview-img').src = '';
-    };
-
-    pollTrigger.onclick = () => {
-        isPollActive = !isPollActive;
-        pollTrigger.classList.toggle('active', isPollActive);
-        document.getElementById('poll-composer-container').innerHTML = isPollActive ? PollComposerUI() : '';
-        if (isPollActive) setupPollComposerListeners();
-    };
-
-    expenseTrigger.onclick = () => toggleExpenseCreator(); // NEU
-
-    form.onsubmit = (e) => {
-        e.preventDefault();
-        const text = document.getElementById('post-text-input').value.trim();
-        const isExpense = document.getElementById('expense-creator-container')?.style.display !== 'none';
+        `;
         
-        if (isPollActive) {
-            handleSavePoll(text);
-        } else if (isExpense) {
-            handleExpenseSubmit(e); // Leite an separate Funktion weiter
-        } else {
-            handleSaveStandardPost(text, selectedFile);
+        openModal(Card(modalFormContent, { variant: 'premium', className: 'animate-slide-in-up max-w-lg w-full' }), modalId);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        setTimeout(() => document.getElementById('post-text-input')?.focus(), 100);
+    }
+}
+
+if (!window.openGratitudeModal) {
+    window.openGratitudeModal = () => {
+        const { membersData, currentUser } = getCurrentUser();
+        const memberOptions = Object.values(membersData)
+            .filter(member => member.uid !== currentUser.uid)
+            .map(member => `<option value="${member.uid}">${member.name}</option>`)
+            .join('');
+
+        const modalId = 'modal-gratitude';
+        const modalContent = `
+            <form id="gratitude-form" onsubmit="window.handleGratitudeSubmit(event)">
+                <h2 class="text-2xl font-bold text-gradient mb-6">Dankbarkeit senden</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="gratitude-to-uid" class="text-sm text-secondary mb-1 block">An wen?</label>
+                        <select id="gratitude-to-uid" name="gratitude-to-uid" class="form-input" required>
+                            ${memberOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="gratitude-text" class="text-sm text-secondary mb-1 block">Wofür? (Kurz)</label>
+                        <input type="text" id="gratitude-text" name="gratitude-text" class="form-input" placeholder="Danke für..." required>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-4 mt-6 pt-4 border-t border-border-glass">
+                    <button type="button" class="btn-secondary" data-action="close-modal">Abbrechen</button>
+                    <button type="submit" id="gratitude-submit-btn" class="cta-primary-glow">
+                      <span class="btn-text">Senden</span>
+                    </button>
+                </div>
+            </form>
+        `;
+        
+        openModal(Card(modalContent, { variant: 'premium', className: 'animate-slide-in-up max-w-md w-full' }), modalId);
+    };
+}
+
+if (!window.handleGratitudeSubmit) {
+    window.handleGratitudeSubmit = async (event) => {
+        event.preventDefault();
+        const submitBtn = document.getElementById('gratitude-submit-btn');
+        showButtonSpinner(submitBtn);
+        
+        const { currentUser, currentUserData, currentFamilyId, membersData } = getCurrentUser();
+        const toUid = document.getElementById('gratitude-to-uid').value;
+        const text = document.getElementById('gratitude-text').value;
+        const toMember = membersData[toUid];
+        
+        if (!toMember) {
+            showNotification("Mitglied nicht gefunden", "error");
+            hideButtonSpinner(submitBtn);
+            return;
+        }
+
+        const postData = {
+            type: 'gratitude',
+            text: text,
+            fromUID: currentUser.uid,
+            fromName: currentUserData.name,
+            fromAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUserData.name)}`,
+            toUID: toUid,
+            toName: toMember.name,
+            toAvatar: toMember.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(toMember.name)}`,
+            createdAt: serverTimestamp(),
+            participants: null
+        };
+
+        try {
+            await addDoc(collection(db, 'families', currentFamilyId, 'posts'), postData);
+            showNotification('Dankbarkeit geteilt!', 'success');
+            closeModal('modal-gratitude');
+        } catch (error) {
+            console.error("Fehler beim Senden:", error);
+            showNotification('Senden fehlgeschlagen', 'error');
+            hideButtonSpinner(submitBtn);
         }
     };
 }
 
-// --- NEUE FUNKTIONEN FÜR AUSGABEN ---
-
-let selectedParticipants = [];
-
-/**
- * Schaltet die Sichtbarkeit des Ausgaben-Erstellungsbereichs um.
- */
-function toggleExpenseCreator() {
-    const container = document.getElementById('expense-creator-container');
-    const expenseBtn = document.getElementById('expense-creator-btn');
-    const isActive = container.style.display !== 'none';
-
-    if (!isActive) {
-        // Aktivieren
-        container.style.display = 'block';
-        expenseBtn.classList.add('active');
-        renderParticipantSelector();
-    } else {
-        // Deaktivieren
-        container.style.display = 'none';
-        expenseBtn.classList.remove('active');
-        selectedParticipants = []; // Auswahl zurücksetzen
-    }
-}
-
-/**
- * Rendert die Mitgliederauswahl für eine Ausgabe.
- */
-function renderParticipantSelector() {
-    const { currentUser } = getCurrentUser();
-    const container = document.getElementById('expense-participants');
-    if (!container) return;
-
-    // Aktuellen Benutzer standardmäßig hinzufügen und auswählen
-    selectedParticipants = [currentUser.uid];
-
-    let membersHTML = '';
-    for (const memberId in membersMap) {
-        const member = membersMap[memberId];
-        const isSelected = selectedParticipants.includes(member.uid);
-        membersHTML += `
-            <div 
-                class="participant-chip ${isSelected ? 'selected' : ''}" 
-                data-uid="${member.uid}"
-                onclick="window.toggleParticipant(this)"
-            >
-                <img src="${member.photoURL || 'img/default_avatar.png'}" alt="${member.name}" class="w-6 h-6 rounded-full mr-2">
-                <span>${member.name}</span>
-            </div>
-        `;
-    }
-    container.innerHTML = membersHTML;
-}
-
-/**
- * Fügt einen Teilnehmer zur Auswahl hinzu oder entfernt ihn.
- * @param {HTMLElement} element - Das geklickte Chip-Element.
- */
-window.toggleParticipant = (element) => {
-    const uid = element.dataset.uid;
-    const { currentUser } = getCurrentUser();
-
-    // Der Ersteller kann nicht abgewählt werden
-    if (uid === currentUser.uid) {
-        showNotification("Als Ersteller bist du immer dabei.", "info");
-        return;
-    }
-
-    const index = selectedParticipants.indexOf(uid);
-    if (index > -1) {
-        selectedParticipants.splice(index, 1);
-        element.classList.remove('selected');
-    } else {
-        selectedParticipants.push(uid);
-        element.classList.add('selected');
-    }
-};
-
-/**
- * Speichert eine neue private Ausgabe.
- */
-async function handleExpenseSubmit() {
-    const submitBtn = document.getElementById('create-post-submit');
-    const amountInput = document.getElementById('expense-amount');
-    const descriptionInput = document.getElementById('post-text-input');
-    
-    const amount = parseFloat(amountInput.value);
-    const description = descriptionInput.value.trim();
-
-    if (!description) {
-        showNotification("Bitte gib eine Beschreibung für die Ausgabe ein.", "error");
-        return;
-    }
-    if (isNaN(amount) || amount <= 0) {
-        showNotification("Bitte gib einen gültigen Betrag ein.", "error");
-        return;
-    }
-    if (selectedParticipants.length === 0) {
-        showNotification("Bitte wähle mindestens einen Teilnehmer aus.", "error");
-        return;
-    }
-
-    showButtonSpinner(submitBtn);
-    const { currentUser, currentFamilyId } = getCurrentUser();
-
-    const expenseData = {
-        text: description,
-        amount: amount,
-        participants: selectedParticipants, // Array der UIDs
-        type: 'expense',
-        authorId: currentUser.uid,
-        createdAt: serverTimestamp(),
-        // Keine Likes oder Kommentare für private Ausgaben
+if (!window.handlePollVote) {
+    window.handlePollVote = async (postId, optionIndex) => {
+        const { currentUser, currentFamilyId } = getCurrentUser();
+        if (!currentUser) return showNotification('Bitte einloggen', 'error');
+        
+        const postRef = doc(db, 'families', currentFamilyId, 'posts', postId);
+        
+        try {
+            await runTransaction(db, async (transaction) => {
+                const postDoc = await transaction.get(postRef);
+                if (!postDoc.exists()) throw "Umfrage nicht gefunden!";
+                
+                const post = postDoc.data();
+                
+                if (post.votedBy && post.votedBy.includes(currentUser.uid)) {
+                    throw "Bereits abgestimmt!";
+                }
+                
+                const newOptions = [...post.options];
+                newOptions[optionIndex].votes = (newOptions[optionIndex].votes || 0) + 1;
+                const newVotedBy = [...(post.votedBy || []), currentUser.uid];
+                const newVotesMap = { ...(post.votesMap || {}), [currentUser.uid]: optionIndex };
+                
+                transaction.update(postRef, {
+                    options: newOptions,
+                    votedBy: newVotedBy,
+                    votesMap: newVotesMap
+                });
+            });
+            showNotification('Stimme gezählt!', 'success');
+        } catch (error) {
+            console.error("Fehler bei Abstimmung:", error);
+            showNotification(error === "Bereits abgestimmt!" ? error : 'Abstimmung fehlgeschlagen', 'error');
+        }
     };
-
-    try {
-        await addDoc(collection(db, 'families', currentFamilyId, 'posts'), expenseData);
-        closeModal('modal-create-post');
-        showNotification("Ausgabe erfasst!", "success");
-    } catch (error) {
-        console.error("Fehler beim Erfassen der Ausgabe:", error);
-        showNotification("Fehler: Ausgabe konnte nicht erfasst werden.", "error");
-    } finally {
-        hideButtonSpinner(submitBtn);
-        selectedParticipants = []; // Zustand zurücksetzen
-    }
 }
 
+if (!window.toggleLike) {
+    window.toggleLike = async (postId, button) => {
+        const { currentUser, currentFamilyId } = getCurrentUser();
+        if (!currentUser || !currentFamilyId) return;
+        
+        const isLiked = button.classList.contains('active');
+        const likesSpan = button.querySelector('span');
+        const heartIcon = button.querySelector('i[data-lucide="heart"]');
+        
+        try {
+            const postRef = doc(db, 'families', currentFamilyId, 'posts', postId);
+            
+            if (isLiked) {
+                await updateDoc(postRef, {
+                    likes: increment(-1),
+                    likedBy: arrayRemove(currentUser.uid)
+                });
+                button.classList.remove('active');
+                if (heartIcon) heartIcon.style.fill = 'none';
+                likesSpan.textContent = parseInt(likesSpan.textContent) - 1;
+            } else {
+                await updateDoc(postRef, {
+                    likes: increment(1),
+                    likedBy: arrayUnion(currentUser.uid)
+                });
+                button.classList.add('active');
+                if (heartIcon) heartIcon.style.fill = 'currentColor';
+                likesSpan.textContent = parseInt(likesSpan.textContent) + 1;
+            }
+        } catch (error) {
+            console.error('Error toggling like:', error);
+            showNotification('Fehler beim Liken', 'error');
+        }
+    };
+}
 
-function handleImagePreview(file, selectedFileRef) {
-    if (file && file.type.startsWith('image/')) {
-        selectedFileRef = file;
+if (!window.openComments) {
+    window.openComments = async (postId) => {
+        const { currentFamilyId } = getCurrentUser();
+        if (!currentFamilyId) return;
+        
+        const template = document.getElementById('template-comments-modal');
+        if (!template) return;
+        
+        const modalContainer = document.getElementById('modal-container');
+        render(template.innerHTML, modalContainer);
+        
+        modalContainer.querySelector('.modal').addEventListener('click', (e) => {
+            if (e.target.dataset.action === 'close-modal-backdrop') closeModal();
+        });
+        modalContainer.querySelector('button[data-action="close-modal-button"]').addEventListener('click', closeModal);
+
+        const commentForm = modalContainer.querySelector('#comment-form');
+        commentForm.dataset.postId = postId;
+
+        loadComments(postId);
+        
+        commentForm.onsubmit = async (e) => {
+            e.preventDefault();
+            await addComment(e.currentTarget.dataset.postId);
+        };
+        
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
+}
+
+if (!window.sharePost) {
+    window.sharePost = (postId) => {
+        if (navigator.share) {
+            navigator.share({
+                title: 'FamilyHub Post',
+                text: 'Schau dir diesen Post in FamilyHub an!',
+                url: window.location.href + '#post-' + postId
+            }).catch(err => console.log('Error sharing:', err));
+        } else {
+            const url = window.location.href + '#post-' + postId;
+            navigator.clipboard.writeText(url).then(() => {
+                showNotification('Link wurde kopiert!', 'success');
+            });
+        }
+    };
+}
+
+if (!window.openPostMenu) {
+    window.openPostMenu = (postId) => {
+        console.log('Opening menu for post:', postId);
+        showNotification('Menü-Funktion kommt bald!', 'info');
+    };
+}
+
+if (!window.openImageModal) {
+    window.openImageModal = (imageUrl) => {
+        console.log('Opening image modal:', imageUrl);
+        showNotification('Bild-Modal kommt bald!', 'info');
+    };
+}
+
+if (!window.handlePostImageSelect) {
+    window.handlePostImageSelect = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) { // 10MB
+            showNotification('Das Bild ist zu groß (max. 10MB)', 'warning');
+            return;
+        }
+        if (!file.type.startsWith('image/')) {
+            showNotification('Bitte wähle eine Bilddatei aus', 'warning');
+            return;
+        }
+        postImageFile = file;
         const reader = new FileReader();
         reader.onload = (e) => {
-            document.getElementById('post-image-preview-img').src = e.target.result;
-            document.getElementById('post-image-preview').classList.remove('hidden');
+            const previewContainer = document.getElementById('post-image-preview-container');
+            const previewImage = document.getElementById('post-image-preview');
+            if (previewImage && previewContainer) {
+                previewImage.src = e.target.result;
+                previewContainer.classList.remove('hidden');
+            }
         };
         reader.readAsDataURL(file);
-    }
-}
-
-function PollComposerUI() {
-    return `
-        <div class="space-y-3 pt-4 border-t border-border-glass">
-            <input type="text" id="poll-question" class="form-input" placeholder="Deine Frage...">
-            <div id="poll-options-container" class="space-y-2">
-                <div class="poll-option-input-group">
-                    <input type="text" class="poll-option-input" placeholder="Option 1">
-                </div>
-                <div class="poll-option-input-group">
-                    <input type="text" class="poll-option-input" placeholder="Option 2">
-                </div>
-            </div>
-            <button type="button" id="add-poll-option-btn" class="btn-secondary text-sm">
-                <i data-lucide="plus" class="w-4 h-4 mr-2"></i>Option hinzufügen
-            </button>
-        </div>
-    `;
-}
-
-function setupPollComposerListeners() {
-    document.getElementById('add-poll-option-btn').onclick = () => {
-        const container = document.getElementById('poll-options-container');
-        if (container.children.length >= 5) {
-            showNotification("Maximal 5 Optionen erlaubt.", "error");
-            return;
-        }
-        const newOption = document.createElement('div');
-        newOption.className = 'poll-option-input-group';
-        newOption.innerHTML = `
-            <input type="text" class="poll-option-input" placeholder="Option ${container.children.length + 1}">
-            <button type="button" class="remove-option-btn icon-button-ghost">
-                <i data-lucide="x-circle" class="w-5 h-5"></i>
-            </button>
-        `;
-        container.appendChild(newOption);
-        newOption.querySelector('.remove-option-btn').onclick = () => newOption.remove();
     };
 }
 
-async function handleSaveStandardPost(text, file) {
-    const submitBtn = document.getElementById('create-post-submit');
-    if (!text && !file) {
-        showNotification("Bitte Text eingeben oder Bild wählen.", "error");
-        return;
-    }
-    showButtonSpinner(submitBtn);
-
-    const { currentUser, currentUserData, currentFamilyId } = getCurrentUser();
-    let imageUrl = null;
-
-    try {
-        if (file) {
-            const storageRef = ref(storage, `media/${currentFamilyId}/posts/${Date.now()}_${file.name}`);
-            const uploadTask = await uploadBytesResumable(storageRef, file);
-            imageUrl = await getDownloadURL(uploadTask.ref);
-        }
-
-        await addDoc(collection(db, 'families', currentFamilyId, 'posts'), {
-            text: text || null,
-            imageUrl: imageUrl,
-            type: 'post',
-            authorId: currentUser.uid,
-            createdAt: serverTimestamp(),
-            likes: [],
-            comments: []
-        });
-        
-        closeModal('modal-create-post');
-        showNotification("Beitrag erstellt!", "success");
-    } catch (error) {
-        console.error("Fehler beim Posten:", error);
-        showNotification("Fehler: Beitrag konnte nicht erstellt werden.", "error");
-    } finally {
-        hideButtonSpinner(submitBtn);
-    }
-}
-
-async function handleSavePoll(description) {
-    const submitBtn = document.getElementById('create-post-submit');
-    const question = document.getElementById('poll-question').value.trim();
-    const options = Array.from(document.querySelectorAll('.poll-option-input'))
-        .map(input => input.value.trim())
-        .filter(Boolean);
-
-    if (!question || options.length < 2) {
-        showNotification("Eine Umfrage braucht eine Frage und mind. 2 Optionen.", "error");
-        return;
-    }
-    showButtonSpinner(submitBtn);
-
-    const { currentUser, currentFamilyId } = getCurrentUser();
-    const pollData = {
-        text: description || question,
-        question: question,
-        options: options.map(opt => ({ text: opt, votes: 0 })),
-        type: 'poll',
-        authorId: currentUser.uid,
-        createdAt: serverTimestamp(),
-        userVotes: {},
-        likes: [],
-        comments: []
-    };
-
-    try {
-        await addDoc(collection(db, 'families', currentFamilyId, 'posts'), pollData);
-        closeModal('modal-create-post');
-        showNotification("Umfrage erstellt!", "success");
-    } catch (error) {
-        console.error("Fehler beim Erstellen der Umfrage:", error);
-        showNotification("Fehler: Umfrage konnte nicht erstellt werden.", "error");
-    } finally {
-        hideButtonSpinner(submitBtn);
-    }
-}
-
-// --- 6. DANKBARKEITS-MODAL & LOGIK ---
-
-async function openGratitudeModal() {
-    const { currentUser, currentFamilyId } = getCurrentUser();
-    const members = Object.values(membersMap).filter(m => m.uid !== currentUser.uid);
-
-    if (members.length === 0) {
-        showNotification("Keine anderen Mitglieder zum Danken da.", "info");
-        return;
-    }
-
-    const modalId = 'modal-gratitude';
-    const modalContent = `
-        <div class="modal-content glass-premium max-w-md w-full">
-            <h2 class="text-xl font-bold text-gradient mb-4">Dankbarkeit senden</h2>
-            <p class="text-secondary mb-6">Wähle eine Person aus, der du danken möchtest.</p>
-            <div id="gratitude-members-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-4 mb-6">
-                ${members.map(member => `
-                    <div class="gratitude-member-item" data-uid="${member.uid}">
-                        <img src="${member.photoURL || 'img/default_avatar.png'}" alt="${member.name}" class="w-16 h-16 rounded-full object-cover mx-auto mb-2">
-                        <span class="text-sm font-medium text-center block">${member.name}</span>
-                    </div>
-                `).join('')}
-            </div>
-            <div id="gratitude-message-section" class="hidden space-y-4">
-                <textarea id="gratitude-message" class="form-input" rows="3" placeholder="Deine Nachricht (optional)"></textarea>
-            </div>
-            <div class="flex justify-end gap-3 pt-6 border-t border-border-glass">
-                <button type="button" class="btn-secondary" data-action="close-modal">Abbrechen</button>
-                <button type="button" id="gratitude-modal-send" class="cta-primary-glow" disabled>Senden</button>
-            </div>
-        </div>
-    `;
-    
-    openModal(modalContent, modalId);
-
-    const membersGrid = document.getElementById('gratitude-members-grid');
-    const messageSection = document.getElementById('gratitude-message-section');
-    const sendBtn = document.getElementById('gratitude-modal-send');
-    let selectedMemberUid = null;
-
-    membersGrid.onclick = (e) => {
-        const item = e.target.closest('.gratitude-member-item');
-        if (!item) return;
-        
-        selectedMemberUid = item.dataset.uid;
-        membersGrid.querySelectorAll('.gratitude-member-item').forEach(el => el.classList.remove('selected'));
-        item.classList.add('selected');
-        messageSection.classList.remove('hidden');
-        sendBtn.disabled = false;
-    };
-
-    sendBtn.onclick = async () => {
-        const text = document.getElementById('gratitude-message').value.trim();
-        await handleSaveGratitude(sendBtn, selectedMemberUid, text);
-        closeModal(modalId);
+if (!window.removePostImage) {
+    window.removePostImage = () => {
+        postImageFile = null;
+        const previewContainer = document.getElementById('post-image-preview-container');
+        const fileInput = document.querySelector('input[type="file"]');
+        if (previewContainer) previewContainer.classList.add('hidden');
+        if(fileInput) fileInput.value = ''; 
     };
 }
 
-async function handleSaveGratitude(submitBtn, toUID, text) {
-    showButtonSpinner(submitBtn);
-    const { currentUser, currentFamilyId } = getCurrentUser();
-
-    const gratitudeData = {
-        fromUID: currentUser.uid,
-        toUID: toUID,
-        text: text || null,
-        type: 'gratitude',
-        authorId: currentUser.uid,
-        createdAt: serverTimestamp(),
-        likes: [],
-        comments: []
-    };
-
-    try {
-        await addDoc(collection(db, 'families', currentFamilyId, 'posts'), gratitudeData);
-        showNotification("Dankbarkeit gesendet!", "success");
-    } catch (error) {
-        console.error("Fehler beim Senden der Dankbarkeit:", error);
-        showNotification("Senden fehlgeschlagen.", "error");
-    } finally {
-        hideButtonSpinner(submitBtn);
-    }
-}
-
-// --- 7. GLOBALE AKTIONEN (auf window-Objekt) ---
-
-/**
- * Behandelt die Abstimmung bei einer Umfrage.
- * @param {string} postId - Die ID des Beitrags (der Umfrage).
- * @param {number} optionIndex - Der Index der gewählten Option.
- */
-window.handleVote = async (postId, optionIndex) => {
-    const { currentUser, currentFamilyId } = getCurrentUser();
-    const postRef = doc(db, 'families', currentFamilyId, 'posts', postId);
-
-    try {
-        await runTransaction(db, async (transaction) => {
-            const postDoc = await transaction.get(postRef);
-            if (!postDoc.exists()) {
-                throw "Umfrage nicht gefunden!";
-            }
-
-            const postData = postDoc.data();
-
-            // 1. Prüfen, ob der Benutzer bereits abgestimmt hat.
-            if (postData.userVotes && postData.userVotes[currentUser.uid] !== undefined) {
-                showNotification("Du hast bereits abgestimmt.", "info");
-                return; // Transaktion sicher beenden
-            }
-
-            // 2. Update-Objekt vorbereiten
-            const newOptions = [...postData.options];
-            newOptions[optionIndex].votes = (newOptions[optionIndex].votes || 0) + 1;
-
-            const newUserVotes = { ...postData.userVotes, [currentUser.uid]: optionIndex };
-
-            // 3. Transaktion ausführen
-            transaction.update(postRef, {
-                options: newOptions,
-                userVotes: newUserVotes
-            });
-        });
-    } catch (error) {
-        console.error("Fehler bei der Abstimmung:", error);
-        showNotification("Fehler bei der Abstimmung.", "error");
-    }
-};
-
-window.toggleLike = async (postId) => {
-    const { currentUser, currentFamilyId } = getCurrentUser();
-    const postRef = doc(db, 'families', currentFamilyId, 'posts', postId);
-
-    try {
-        await runTransaction(db, async (transaction) => {
-            const postDoc = await transaction.get(postRef);
-            if (!postDoc.exists()) throw "Post nicht gefunden!";
-
-            const postData = postDoc.data();
-            const likes = postData.likes || [];
-            
-            if (likes.includes(currentUser.uid)) {
-                transaction.update(postRef, { 
-                    likes: likes.filter(uid => uid !== currentUser.uid)
-                });
-            } else {
-                transaction.update(postRef, { 
-                    likes: [...likes, currentUser.uid]
-                });
-            }
-        });
-    } catch (error) {
-        console.error("Fehler beim Liken:", error);
-        showNotification("Fehler beim Liken.", "error");
-    }
-};
-
-// --- 6. DANKBARKEITS-MODUL LOGIK ---
-
-function setupGratitudeTrigger() {
-    // Der Trigger wird jetzt in setupFilterButtons() gerendert.
-    // Wir müssen hier nur den Event-Listener hinzufügen.
-    document.body.addEventListener('click', e => {
-        const trigger = e.target.closest('#gratitude-trigger');
-        if (trigger) {
-            openGratitudeModal();
-        }
-    });
-}
-
-async function openGratitudeModal() {
-    const { currentUser, currentFamilyId } = getCurrentUser();
-    const membersCollectionRef = collection(db, 'families', currentFamilyId, 'membersData');
-    
-    try {
-        const snapshot = await getDocs(membersCollectionRef);
-        const members = snapshot.docs
-            .map(doc => ({ uid: doc.id, ...doc.data() }))
-            .filter(member => member.uid !== currentUser.uid); // Man kann sich nicht selbst danken
-
-        if (members.length === 0) {
-            showNotification("Es sind keine anderen Familienmitglieder da, denen du danken könntest.", "info");
-            return;
-        }
-
+if (!window.closeModal) {
+    window.closeModal = () => {
         const modalContainer = document.getElementById('modal-container');
-        modalContainer.innerHTML = GratitudeModal(members);
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-
-        const backdrop = document.getElementById('gratitude-modal-backdrop');
-        const closeBtn = document.getElementById('gratitude-modal-close');
-        const cancelBtn = document.getElementById('gratitude-modal-cancel');
-        const sendBtn = document.getElementById('gratitude-modal-send');
-        const membersGrid = document.getElementById('gratitude-members-grid');
-        const messageSection = document.getElementById('gratitude-message-section');
-        
-        let selectedMemberUid = null;
-
-        // Modal öffnen
-        setTimeout(() => backdrop.classList.add('active'), 10);
-
-        const closeModal = () => {
-            backdrop.classList.remove('active');
-            setTimeout(() => backdrop.remove(), 300);
-        };
-
-        closeBtn.onclick = closeModal;
-        cancelBtn.onclick = closeModal;
-        backdrop.onclick = (e) => {
-            if (e.target === backdrop) {
-                closeModal();
-            }
-        };
-
-        membersGrid.addEventListener('click', (e) => {
-            const memberItem = e.target.closest('.gratitude-member-item');
-            if (!memberItem) return;
-
-            // Auswahl umschalten
-            membersGrid.querySelectorAll('.gratitude-member-item').forEach(item => item.classList.remove('selected'));
-            memberItem.classList.add('selected');
-            
-            selectedMemberUid = memberItem.dataset.uid;
-            messageSection.classList.remove('hidden');
-            sendBtn.disabled = false;
-        });
-
-        sendBtn.onclick = async () => {
-            if (!selectedMemberUid) {
-                showNotification("Bitte wähle eine Person aus.", "error");
-                return;
-            }
-            const message = document.getElementById('gratitude-message').value.trim();
-            await saveGratitudePost(sendBtn, selectedMemberUid, message);
-            closeModal();
-        };
-
-    } catch (error) {
-        console.error("Fehler beim Laden der Familienmitglieder:", error);
-        showNotification("Konnte Mitgliederliste nicht laden.", "error");
-    }
-}
-
-async function saveGratitudePost(submitBtn, toUID, text) {
-    showButtonSpinner(submitBtn);
-    const { currentUser, currentFamilyId } = getCurrentUser();
-
-    const gratitudeData = {
-        fromUID: currentUser.uid,
-        toUID: toUID,
-        text: text || null,
-        type: 'gratitude',
-        createdAt: serverTimestamp(),
-        // author-Felder sind für Kompatibilität mit PostCard etc., falls nötig
-        authorId: currentUser.uid, 
-        likes: [],
-        comments: []
+        if (modalContainer) modalContainer.innerHTML = '';
+        postImageFile = null;
+        selectedParticipants = []; // Wichtig: Zurücksetzen
     };
-
-    try {
-        await addDoc(collection(db, 'families', currentFamilyId, 'posts'), gratitudeData);
-        showNotification("Dankbarkeit gesendet!", "success");
-        // Hier könnte man eine Push-Benachrichtigung auslösen
-    } catch (error) {
-        console.error("Fehler beim Senden der Dankbarkeit:", error);
-        showNotification("Senden fehlgeschlagen.", "error");
-    } finally {
-        hideButtonSpinner(submitBtn);
-    }
 }
 
-async function fetchMembersData(familyId) {
-    const membersRef = collection(db, 'families', familyId, 'membersData');
-    try {
-        const snapshot = await getDocs(membersRef);
-        snapshot.forEach(doc => {
-            membersMap[doc.id] = doc.data();
-        });
-    } catch (error) {
-        console.error("Fehler beim Abrufen der Mitgliederdaten:", error);
-    }
-}
-
-// --- 7. AUFRÄUMFUNKTION ---
+// Globale Verweise auf interne Funktionen
+if (!window.addPollOption) window.addPollOption = addPollOption;
+if (!window.togglePollCreator) window.togglePollCreator = togglePollCreator;
+if (!window.toggleExpenseCreator) window.toggleExpenseCreator = toggleExpenseCreator;

@@ -1,4 +1,4 @@
-import { db, collection, query, onSnapshot, where, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from './firebase.js';
+import { db, collection, query, onSnapshot, where, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, orderBy } from './firebase.js';
       import { getCurrentUser } from './auth.js';
       import { WishlistCard } from './components/Wishlist.js';
       import { EmptyStateCard } from './components/Card.js';

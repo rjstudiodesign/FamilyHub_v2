@@ -1,5 +1,5 @@
 // firebase.js – Initialisierung für FamilyHub
-// FINALE KORRIGIERTE VERSION (behebt alle fehlenden Exporte)
+// FINALE KORRIGIERTE VERSION
 
 import { initializeApp } from 'https://esm.sh/firebase/app';
 import {
@@ -17,18 +17,23 @@ import {
   where,
   updateDoc,
   getDoc,
-  setDoc, // <--- 1. HIER HINZUGEFÜGT (Import vom CDN)
-  writeBatch
+  setDoc,
+  writeBatch,
+  increment,
+  arrayUnion,
+  arrayRemove
 } from 'https://esm.sh/firebase/firestore';
 import { getAuth } from 'https://esm.sh/firebase/auth';
 import {
   getStorage,
   ref,
+  uploadBytes,
   uploadBytesResumable,
-  getDownloadURL
+  getDownloadURL,
+  deleteObject // Fehlte ebenfalls oft
 } from 'https://esm.sh/firebase/storage';
 
-// Ihre Firebase Konfiguration (bereits korrekt)
+// Ihre Firebase Konfiguration
 const firebaseConfig = {
   apiKey: "AIzaSyBbx9pn_QARUqxFlvklgk31yHFACVVmjWw",
   authDomain: "family-hub-84c50.firebaseapp.com",
@@ -40,28 +45,17 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-export const storage = getStorage(app);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
-// Firestore Hilfsfunktionen exportieren
+// Alles exportieren
 export {
-  collection,
-  query,
-  onSnapshot,
-  addDoc,
-  doc,
-  deleteDoc,
-  serverTimestamp,
-  orderBy,
-  runTransaction,
-  getDocs,
-  where,
-  updateDoc,
-  getDoc,
-  setDoc, // <--- 2. HIER HINZUGEFÜGT (Export an settings.js)
-  writeBatch,
-  ref,
-  uploadBytesResumable,
-  getDownloadURL
+  db, storage, auth,
+  // Firestore
+  collection, query, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp,
+  orderBy, runTransaction, getDocs, where, updateDoc, getDoc, setDoc,
+  writeBatch, increment, arrayUnion, arrayRemove,
+  // Storage
+  ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject
 };

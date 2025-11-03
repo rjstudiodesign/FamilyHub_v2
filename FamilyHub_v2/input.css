@@ -3,6 +3,10 @@
  * Diese MÜSSEN an erster Stelle stehen.
  * =========================================
  */
+/*
+ * The following @tailwind directives require Tailwind CSS to be processed via PostCSS or a compatible build tool.
+ * If you see "Unknown at rule @tailwind", ensure your build process includes Tailwind CSS.
+ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -146,7 +150,21 @@
     .nav-item.active i { transform: scale(1.10); }
 
     .fab-create-post {
-        @apply cta-primary-glow; /* Erbt vom Basis-Button */
+        /* Erbt vom Basis-Button (cta-primary-glow) */
+        background: var(--accent-glow);
+        color: var(--text-main);
+        border-radius: var(--radius-btn);
+        box-shadow: var(--shadow-glow);
+        padding: 12px 20px;
+        font-weight: 600;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+        border: none;
+        cursor: pointer;
+        display: inline-flex; 
+        align-items: center;
+        justify-content: center;
+
         position: fixed;
         bottom: 6rem;
         right: 1rem;
@@ -290,4 +308,37 @@
       .member-select-avatar {
           @apply w-10 h-10 rounded-full object-cover;
       }
+
+    /* --- N. Challenges & Leaderboard --- */
+        .leaderboard-item {
+            @apply glass-premium p-3 rounded-lg flex items-center gap-4;
+        }
+        .leaderboard-rank {
+            @apply text-lg font-bold text-primary-rose w-6 text-center;
+        }
+        .leaderboard-avatar {
+            @apply w-10 h-10 rounded-full object-cover;
+        }
+        .leaderboard-points {
+            @apply ml-auto text-lg font-semibold text-white;
+        }
+        .leaderboard-points i {
+            @apply w-4 h-4 text-primary-rose inline-block -mt-1;
+            fill: var(--accent-glow);
+        }
+
+        /* Challenge-Karten */
+        .challenge-card {
+            @apply glass-premium p-4 rounded-xl flex items-center gap-4;
+        }
+        .challenge-icon {
+            @apply w-12 h-12 rounded-lg flex-shrink-0 bg-primary-rose/20 text-primary-rose flex items-center justify-center;
+        }
+        .challenge-progress-bar-bg {
+            @apply w-full h-2 bg-white/10 rounded-full overflow-hidden mt-1;
+        }
+        .challenge-progress-bar-fg {
+            @apply h-full bg-primary-rose rounded-full transition-all duration-500;
+            box-shadow: var(--shadow-glow);
+        }
 }

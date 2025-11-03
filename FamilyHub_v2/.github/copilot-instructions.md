@@ -1,76 +1,69 @@
-# Copilot-Anweisungen für FamilyHub v2
+# FamilyHub v2 - Copilot Anweisungen
 
-Dieses Dokument leitet KI-Assistenten an, um effektiv zur FamilyHub v2-Codebasis beizutragen.
+Dieses Dokument gibt eine Anleitung für KI-Assistenten, um in der FamilyHub-Codebasis produktiv zu sein.
 
-## 1. Architekturübersicht
+## Architekturübersicht
 
-FamilyHub ist eine clientseitige Single-Page-Anwendung (SPA), die mit Vanilla JavaScript, HTML und Tailwind CSS erstellt wurde. Sie verwendet Firebase für Backend-Dienste (Auth, Firestore, Storage).
+FamilyHub ist eine clientseitige Single-Page-Anwendung (SPA), die mit Vanilla JavaScript, Tailwind CSS und Firebase erstellt wurde.
 
--   **`index.html`**: Die einzelne HTML-Datei, die als App-Shell fungiert. Sie enthält `<template>`-Elemente für jede "Seite" (z. B. `<template id="template-feed">`).
--   **`src/main.js`**: Der Einstiegspunkt der App. Er initialisiert die Authentifizierung und das Navigationssystem.
--   **`src/navigation.js`**: Behandelt das clientseitige Routing, indem es den Inhalt von `<template>` in den Container `<main id="app-content">` lädt.
--   **`src/firebase.js`**: Zentralisiert alle Firebase-Konfigurationen und Dienstimporte. **Importieren Sie Firebase-Dienste (`db`, `auth`, `storage`) und -Funktionen (`collection`, `onSnapshot`) immer aus dieser Datei.**
--   **`src/auth.js`**: Simuliert die Benutzerauthentifizierung und stellt Sitzungsdaten (Benutzer, Familien-ID) über `getCurrentUser()` bereit.
--   **`src/ui.js`**: Ein zentrales Dienstmodul für UI-Interaktionen wie Modals (`openModal`) und Benachrichtigungen (`showNotification`). Feature-Module müssen dieses verwenden, anstatt ihre eigenen zu implementieren.
--   **`src/components/`**: Enthält wiederverwendbare "dumme" Komponenten, die Daten empfangen und eine HTML-Zeichenfolge zurückgeben. Sie rufen keine eigenen Daten ab.
--   **Feature-Module (`src/*.js`)**: Jede Datei wie `feed.js` oder `calendar.js` enthält die Logik für ein bestimmtes Feature. Sie rufen Daten ab und verwenden Komponenten, um die Benutzeroberfläche zu rendern.
--   **`functions/index.js`**: Enthält serverseitige Cloud Functions, die automatisch Feed-Einträge generieren (z. B. wöchentliche Vorschau, Erinnerungen).
+- **Frontend (SPA):** Die gesamte Anwendung wird in `index.html` geladen. Die Navigation wird clientseitig durch das Austauschen von `<template>`-Inhalten gesteuert.
+  - **`src/main.js`**: Der Haupteinstiegspunkt der Anwendung. Er initialisiert die Authentifizierung und die Navigation.
+  - **`src/navigation.js`**: Enthält die `navigateTo(page)`-Funktion, die für das Anzeigen der verschiedenen Seiteninhalte zuständig ist.
+  - **`src/firebase.js`**: Eine entscheidende Datei, die Firebase initialisiert und alle notwendigen Firestore-, Auth- und Storage-Funktionen exportiert. Fast die gesamte Backend-Kommunikation läuft über dieses Modul.
+  - **Feature-Module (`src/*.js`):** Jede Hauptfunktion (z.B. `feed.js`, `calendar.js`, `chat.js`) hat ihr eigenes Modul. Diese Module sind für die Geschäftslogik, das Abrufen von Daten aus Firebase und das Rendern der Benutzeroberfläche für ihren Bereich verantwortlich.
+  - **UI-Komponenten (`src/components/*.js`):** Wiederverwendbare UI-Elemente werden als reine JavaScript-Funktionen implementiert, die DOM-Elemente erstellen und zurückgeben (z.B. `Card.js`).
 
-## 2. Entwickler-Workflow
+- **Backend (Firebase):**
+  - **Firestore:** Die NoSQL-Datenbank. Die Daten sind pro Familie strukturiert, z.B. `families/{familyId}/posts`.
+  - **Authentication:** Verwaltet die Benutzeranmeldung.
+  - **Storage:** Wird für das Speichern von Dateien wie Bildern in der Galerie verwendet.
+  - **Cloud Functions (`functions/index.js`):** Serverlose Funktionen für Hintergrundprozesse.
+    - `generateWeeklyForecast` & `generateDailyMemory`: Geplante Funktionen, die automatisch Posts im Feed erstellen.
+    - `parseWishlistMetadata`: Eine durch Firestore ausgelöste Funktion, die Metadaten (Titel, Bild) von URLs abruft, wenn ein neuer Wunsch zur Wunschliste hinzugefügt wird.
 
-Um das Projekt auszuführen, benötigen Sie zwei separate Terminalsitzungen:
+- **Styling:**
+  - **Tailwind CSS:** Das Styling wird mit Tailwind CSS umgesetzt. Die Konfiguration in `tailwind.config.js` definiert das Designsystem, einschließlich benutzerdefinierter Farben (`primary-bg`, `accent-primary-rose`, etc.).
+  - `input.css` -> `output.css`: Der Build-Prozess für das CSS.
 
-1.  **Starten Sie den lokalen Webserver**:
+## Entwickler-Workflow
+
+Um die Anwendung lokal auszuführen, müssen zwei Befehle parallel ausgeführt werden:
+
+1.  **Starten des Webservers:**
     ```bash
     npm run dev
     ```
-    Dies stellt das Projekt unter `http://localhost:8000` bereit.
+    Dieser Befehl startet einen einfachen Python-HTTP-Server auf Port 8000.
 
-2.  **Starten Sie den Tailwind CSS-Compiler**:
+2.  **Kompilieren von Tailwind CSS im Watch-Modus:**
     ```bash
     npm run dev:css
     ```
-    Dies überwacht CSS-Änderungen und erstellt `output.css` neu.
+    Dieser Befehl beobachtet `input.css` und `tailwind.config.js` auf Änderungen und kompiliert das CSS in `output.css`.
 
-## 3. Wichtige Muster & Konventionen
+## Wichtige Muster und Konventionen
 
-### Daten- & Sicherheitsmodell
+- **Datenfluss:**
+  1. Ein Feature-Modul (z.B. `feed.js`) ruft Daten über die exportierten Funktionen aus `src/firebase.js` ab.
+  2. Die abgerufenen Daten werden verarbeitet und mithilfe von UI-Komponenten aus `src/components/` in HTML-Elemente umgewandelt.
+  3. Die resultierenden Elemente werden in den entsprechenden Container im DOM (`#app-content`) eingefügt.
 
--   **Datentrennung**: Firestore-Daten sind streng nach Familie getrennt. Die erforderliche Struktur ist `/families/{familyId}/{subcollection}` (z. B. `/families/demo-family/posts`). Alle Datenabfragen müssen diese Grenze erzwingen.
--   **Zugriff auf Sitzungsdaten**: Um die ID des aktuellen Benutzers oder die Familien-ID zu erhalten, verwenden Sie die Funktion `getCurrentUser()` aus `src/auth.js`.
+- **Seiten-Templates:** Jede "Seite" ist in `index.html` als `<template>`-Element mit einer ID wie `template-feed` definiert. Die `navigateTo`-Funktion klont den Inhalt dieser Vorlagen, um die Ansicht zu wechseln.
 
-### Navigation & Zustandsverwaltung
+- **Firebase-Nutzung:** Bevorzuge immer die Verwendung der Hilfsfunktionen, die in `src/firebase.js` exportiert werden, anstatt Firebase-SDK-Funktionen direkt zu importieren. Dies stellt eine konsistente Initialisierung sicher.
 
--   **Navigation auslösen**: Die Navigation wird durch `data-page`-Attribute auf klickbaren Elementen ausgelöst. Ein globaler Klick-Listener in `main.js` ruft `navigateTo(pageName)` auf.
--   **Listener-Verwaltung**: Um Speicherlecks zu vermeiden, müssen Firestore `onSnapshot`-Listener verwaltet werden. Die `render<Page>(pageListeners)`-Funktion für jede Seite erhält ein `pageListeners`-Objekt. Die `unsubscribe`-Funktion Ihres Listeners muss diesem Objekt hinzugefügt werden. `navigation.js` kümmert sich um die Bereinigung bei Seitenwechseln.
-    ```javascript
-    // Beispiel in einem Feature-Modul (z. B. feed.js)
-    export function renderFeed(pageListeners) {
-      // ...
-      const q = query(collection(db, `families/${familyId}/posts`));
-      // Registrieren Sie die unsubscribe-Funktion zur Bereinigung
-      pageListeners.posts = onSnapshot(q, (snapshot) => {
-        // ... UI aktualisieren
-      });
-    }
-    ```
+- **Cloud Functions Deployment:** Die Cloud Functions im `functions`-Verzeichnis werden separat bereitgestellt.
+  - Um alle Funktionen bereitzustellen: `firebase deploy --only functions`
+  - Um eine einzelne Funktion bereitzustellen: `firebase deploy --only functions:FUNCTION_NAME`
 
-### Styling
+- **Abhängigkeiten:** Die Frontend-Anwendung hat `firebase` als Hauptabhängigkeit. Die Cloud Functions haben ihre eigenen Abhängigkeiten in `functions/package.json`, darunter `firebase-admin`, `axios` und `cheerio` für das Web-Scraping.
 
--   Das Projekt verwendet ein Theming-System, bei dem CSS-Variablen aus `input.css` (z. B. `--background-main`) auf die Konfiguration von Tailwind in `tailwind.config.js` abgebildet werden (z. B. `primary-bg`). Um eine neue Themenfarbe hinzuzufügen, definieren Sie sie zuerst in `input.css` und machen Sie sie dann in der Konfigurationsdatei verfügbar.
+Strikte Sequenz: Du wirst drei separate Sanierungs-Befehle erhalten. Führe nur einen Befehl auf einmal aus. Warte nach Abschluss jedes Befehls auf die Bestätigung, bevor du mit dem nächsten beginnst.
 
-### Fehlerbehandlung
+Keine "Geister-Architektur": Importiere keine JavaScript-Komponenten, deren Existenz nicht bewiesen ist. Die Module ButtonGroup, LoadingButton, GhostButton und PrimaryButton existieren nicht in Button.js.
 
--   Alle asynchronen Firebase-Operationen (`addDoc`, `deleteDoc` usw.) müssen in `try...catch`-Blöcke eingeschlossen werden.
--   Geben Sie bei Fehlern Benutzerfeedback, indem Sie `showNotification(message, 'error')` aus `src/ui.js` aufrufen.
+CSS statt JS: Wenn ein JavaScript-Button-Wrapper (z.B. PrimaryButton) nicht existiert, ersetze ihn durch rohes HTML (<button class="cta-primary-glow">...) und verwende die CSS-Klassen, die in input.css (z.B. .cta-primary-glow) oder styles.css definiert sind.
 
-### Feed-Post-Typen
+Zentrale Service-Module: Alle Modals, Spinner und Benachrichtigungen müssen über das zentrale ui.js-Modul (openModal, showButtonSpinner, showNotification) aufgerufen werden. Module wie calendar.js und pinnwand.js dürfen keine eigenen Implementierungen (wie prompt()) verwenden.
 
-Der Feed ist ein Aggregator für verschiedene Arten von Inhalten, die durch das Feld `type` im Post-Dokument unterschieden werden:
--   `type: 'post'`: Ein Standard-Benutzerbeitrag.
--   `type: 'forecast'`: Eine wöchentliche Vorschau, die von einer Cloud Function in `functions/index.js` generiert wird.
--   `type: 'memory'`: Ein "An diesem Tag"-Beitrag, der von einer Cloud Function generiert wird.
--   `type: 'event'`: (Vorgeschlagen) Ein Proxy-Beitrag, der erstellt wird, wenn ein Kalenderereignis hinzugefügt wird.
--   `type: 'gallery_upload'`: (Vorgeschlagen) Ein Proxy-Beitrag für neue Galerie-Uploads.
-
-Die Komponente `Card.js` sollte Logik enthalten, um diese verschiedenen Typen zu erkennen und sie entsprechend zu rendern.
+Zentrales Firebase-Modul: Alle Firebase-Funktionen (wie orderBy, query, arrayRemove) müssen aus der zentralen src/firebase.js-Datei importiert werden. Stelle sicher, dass firebase.js diese Funktionen auch exportiert.

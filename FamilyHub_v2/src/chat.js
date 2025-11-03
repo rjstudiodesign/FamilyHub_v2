@@ -1,5 +1,6 @@
 import { db, collection, query, where, orderBy, onSnapshot, addDoc, doc, updateDoc, serverTimestamp } from './firebase.js';
 import { getCurrentUser } from './auth.js';
+import { showNotification, openModal, closeModal } from './ui.js';
 
 // Globale Variablen
 let currentMessagesUnsubscribe = () => {}; // Initialisiere als leere Funktion
@@ -78,7 +79,7 @@ export function renderChat(listeners) {
     window.closeChatWindow = () => closeChatWindow();
     // showNotification ist nicht definiert, daher auskommentiert
     // window.openNewChatModal = () => showNotification("Neue Chats bald verfügbar", "info");
-    window.openNewChatModal = () => console.log("Neue Chats bald verfügbar");
+    window.openNewChatModal = () => showNotification("Neue Chats bald verfügbar", "info");
 }
 
 // Erstellt das HTML für ein einzelnes Chat-Listen-Element
