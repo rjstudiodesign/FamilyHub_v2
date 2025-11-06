@@ -1,5 +1,6 @@
-// Einstiegspunkt für Ihre App
-
+// src/main.js
+// ECHTER EINSTIEGSPUNKT (ohne Simulation)
+// Core Module-Imports (für Seiteneffekte)
 import './feed.js';
 import './calendar.js';
 import './gallery.js';
@@ -7,29 +8,56 @@ import './navigation.js';
 import './settings.js';
 import './chat.js';
 import './challenges.js';
-import { initAuth } from './auth.js';
+import './ui.js';
+import './pinnwand.js';
+import './wishlist.js';
+import './finanzen.js';
+import './chronik.js';
+import './login.js';
 
-// Navigationsfunktion aus navigation.js holen
+// ECHTE AUTH-IMPORTE
+import { auth, onAuthStateChanged } from './firebase.js';
+import { initAuthSession, clearAuthSession } from './auth.js';
 import { navigateTo } from './navigation.js';
 
-// Dummy-MapsTo-Funktion, falls nicht global vorhanden
+// Globale MapsTo-Funktion
 window.MapsTo = window.MapsTo || function(page) {
-	navigateTo(page);
+    navigateTo(page);
 };
 
 // Globaler Klick-Listener für Navigation
 document.addEventListener('click', (e) => {
-	const target = e.target.closest('[data-page]');
-	if (target) {
-		e.preventDefault();
-		const page = target.getAttribute('data-page');
-		if (page) {
-			window.MapsTo(page);
-		}
-	}
+    // Wir suchen nach dem nächstgelegenen Element mit `data-page`, egal ob Link oder Button.
+    const target = e.target.closest('[data-page]');
+    if (target) {
+        e.preventDefault(); // Verhindert das Standardverhalten (z.B. Navigation zu '#')
+        const page = target.getAttribute('data-page');
+        if (page) {
+            window.MapsTo(page);
+        }
+    }
 });
 
-// Starte Authentifizierung und gehe nach Login zum Feed
-initAuth(() => {
-	navigateTo('feed');
+/**
+ * STARTPUNKT DER APP
+ *
+ * Prüft den Auth-Status und leitet den Benutzer weiter.
+ */
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        // Benutzer ist angemeldet
+        console.log("Auth-Status: Angemeldet", user.uid);
+        // Lade alle Benutzer- und Familiendaten
+        initAuthSession(user, () => {
+            // Nach erfolgreichem Laden der Daten -> zum Feed
+            navigateTo('feed');
+        });
+    } else {
+        // Benutzer ist abgemeldet
+        console.log("Auth-Status: Abgemeldet");
+        // Bereinige alle alten Sitzungsdaten
+        clearAuthSession();
+        // Leite zur Login-Seite
+        navigateTo('login');
+    }
 });

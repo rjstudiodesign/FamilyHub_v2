@@ -29,8 +29,8 @@ export function renderSettings(listeners) {
 
     renderProfileTab(currentUser, currentUserData);
     renderFamilyTab(currentFamilyId);
-    setupTabs();
-    setupGoalsTab(currentFamilyId, listeners); // NEU
+    setupTabs(); // Diese Funktion wird jetzt überarbeitet
+    setupGoalsTab(currentFamilyId, listeners); 
 
     // Event-Listener für Formulare
     const profileForm = document.getElementById('profile-form');
@@ -44,21 +44,34 @@ export function renderSettings(listeners) {
     }
 }
 
+// === NEUE, VEREINFACHTE TAB-LOGIK ===
 function setupTabs() {
-    const desktopTabs = document.getElementById('settings-tabs-desktop');
-    const mobileTabs = document.getElementById('settings-tabs-mobile');
+    const navContainer = document.getElementById('settings-nav'); // Ziel: Das neue <nav> Element
     const tabPanels = document.querySelectorAll('.settings-tab-panel');
 
+    if (!navContainer || tabPanels.length === 0) {
+        console.error("Architekt: Das neue Einstellungs-Layout (#settings-nav) wurde nicht gefunden.");
+        return;
+    }
+
     const switchTab = (tabName) => {
+        // 1. Alle Panels ausblenden
         tabPanels.forEach(panel => {
             panel.classList.toggle('hidden', panel.id !== `settings-${tabName}`);
         });
-        desktopTabs.querySelectorAll('button').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        
+        // 2. Alle Buttons de-aktivieren
+        navContainer.querySelectorAll('button').forEach(btn => {
+            btn.classList.remove('active');
         });
-        mobileTabs.value = tabName;
 
-        // Wenn der Ziele-Tab aktiv ist, Lucide-Icons neu initialisieren
+        // 3. Ziel-Button aktivieren
+        const activeButton = navContainer.querySelector(`button[data-tab="${tabName}"]`);
+        if (activeButton) {
+            activeButton.classList.add('active');
+        }
+
+        // Lucide-Icons neu initialisieren (wichtig für Ziele-Tab)
         if (tabName === 'goals') {
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
@@ -66,23 +79,23 @@ function setupTabs() {
         }
     };
 
-    desktopTabs.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            switchTab(e.target.dataset.tab);
+    // Globaler Klick-Listener für die neue Navigation
+    navContainer.addEventListener('click', (e) => {
+        const targetButton = e.target.closest('button[data-tab]');
+        if (targetButton && !targetButton.disabled) {
+            switchTab(targetButton.dataset.tab);
         }
     });
 
-    mobileTabs.addEventListener('change', (e) => {
-        switchTab(e.target.value);
-    });
-
-    // Initialer Zustand (kann auch ein anderer Tab sein, falls über URL gesteuert)
+    // Initialer Zustand (Profil als Standard)
     const urlParams = new URLSearchParams(window.location.search);
     const initialTab = urlParams.get('tab') || 'profile';
     switchTab(initialTab);
 }
+// === ENDE DER NEUEN TAB-LOGIK ===
 
-// --- ZIELE-VERWALTUNG (NEU) ---
+
+// --- ZIELE-VERWALTUNG (Unverändert) ---
 
 function setupGoalsTab(familyId, listeners) {
     const addGoalBtn = document.getElementById('add-goal-btn');
@@ -269,7 +282,7 @@ window.deleteGoal = async (goalId) => {
     }
 };
 
-// --- BISHERIGE FUNKTIONEN ---
+// --- BISHERIGE FUNKTIONEN (Unverändert) ---
 
 function renderProfileTab(user, userData) {
     const nameInput = document.getElementById('profile-name');
@@ -303,8 +316,7 @@ async function renderFamilyTab(familyId) {
                         <p class="text-sm text-text-secondary">${member.email}</p>
                     </div>
                 </div>
-                <!-- Hier könnten Aktionen wie "Entfernen" hin -->
-            </div>
+                </div>
         `).join('');
 
     } catch (error) {
@@ -336,7 +348,7 @@ async function handleProfileUpdate(e) {
         
         // Update in /users/{uid}
         const userDocRef = doc(db, 'users', currentUser.uid);
-        batch.update(userDocRef, { name: newName });
+        batch.set(userDocRef, { name: newName }, { merge: true }); // Statt update
 
         // Update in /families/{fid}/membersData/{uid}
         const memberDataDocRef = doc(db, 'families', currentFamilyId, 'membersData', currentUser.uid);

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>FamilyHub</title>
   
-  <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="output.css">
   
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -14,32 +13,35 @@
 
   <div id="app-shell" class="min-h-screen pb-20 lg:pb-0 lg:grid lg:grid-cols-[280px_1fr]">
 
-    <aside class="hidden lg:block w-64 bg-primary-bg p-4 border-r border-border-glass">
-    <div class="flex items-center mb-8">
-      <img src="assets/logo.png" alt="FamilyHub Logo" class="h-8 w-auto">
-      <h1 class="text-xl font-bold text-text-main ml-2">FamilyHub</h1>
-    </div>
-    <nav class="space-y-2">
-      <a href="#" class="nav-item-desktop active" data-page="feed">
-        <i data-lucide="home"></i> <span>Feed</span>
-      </a>
-      <a href="#" class="nav-item-desktop" data-page="chat">
-        <i data-lucide="message-circle"></i> <span>Chat</span>
-      </a>
-      <a href="#" class="nav-item-desktop" data-page="calendar">
-        <i data-lucide="calendar-days"></i> <span>Kalender</span>
-      </a>
-      <a href="#" class="nav-item-desktop" data-page="pinnwand">
-        <i data-lucide="kanban-square"></i> <span>Pinnwand</span>
-      </a>
-      <a href="#" class="nav-item-desktop" data-page="wishlist">
-        <i data-lucide="gift"></i> <span>Wünsche</span>
-      </a>
-      <a href="#" class="nav-item-desktop" data-page="menu">
-        <i data-lucide="layout-grid"></i> <span>Mehr</span>
-      </a>
-    </nav>
-  </aside>
+    <aside class="hidden lg:block bg-primary-bg border-r border-border-glass p-6">
+      <div class="mb-8">
+        <h1 class="text-2xl font-bold text-gradient">FamilyHub</h1>
+      </div>
+      <nav class="space-y-2">
+        <a href="#" class="nav-item-desktop active" data-page="feed">
+          <i data-lucide="home"></i> <span>Feed</span>
+        </a>
+        <a href="#" class="nav-item-desktop" data-page="chat">
+          <i data-lucide="message-circle"></i> <span>Chat</span>
+        </a>
+        <a href="#" class="nav-item-desktop" data-page="calendar">
+          <i data-lucide="calendar-days"></i> <span>Kalender</span>
+        </a>
+        <a href="#" class="nav-item-desktop" data-page="pinnwand">
+          <i data-lucide="kanban-square"></i> <span>Pinnwand</span>
+        </a>
+        <a href="#" class="nav-item-desktop" data-page="wishlist"><i data-lucide="gift"></i><span>Wünsche</span></a>
+        
+        <a href="#" class="nav-item-desktop" data-page="challenges">
+          <i data-lucide="award"></i> <span>Challenges</span>
+          <span class="nav-badge-premium">Pro</span>
+        </a>
+        
+        <a href="#" class="nav-item-desktop" data-page="menu">
+          <i data-lucide="layout-grid"></i> <span>Mehr</span>
+        </a>
+      </nav>
+    </aside>
 
     <div class="lg:flex lg:flex-col lg:h-screen">
       <header class="sticky top-0 z-30 lg:z-auto lg:static glass-premium lg:glass-none lg:bg-transparent border-b border-border-glass lg:border-none p-4 flex items-center gap-3 lg:hidden">
@@ -427,62 +429,12 @@
   
   <template id="template-chronik">
     </template>
-  <template id="template-login">
-    <div class="min-h-[80vh] flex items-center justify-center p-4">
-        <div class="login-container w-full max-w-md">
-            
-            >             <form id="login-form" class="auth-form glass-premium p-8 rounded-xl space-y-6">
-                <h2 class="text-2xl font-bold text-gradient text-center">Willkommen zurück</h2>
-                <div class="space-y-4">
-                    <label class="flex flex-col gap-1">
-                        <span class="text-secondary text-sm">E-Mail</span>
-                        <input id="login-email" type="email" class="form-input" required autocomplete="email">
-                    </label>
-                    <label class="flex flex-col gap-1">
-                        <span class="text-secondary text-sm">Passwort</span>
-                        <input id="login-pass" type="password" class="form-input" required autocomplete="current-password">
-                    </label>
-                </div>
-                <button type="submit" class="cta-primary-glow w-full">
-                    <span class="btn-text">Anmelden</span>
-                </button>
-                <p class="text-center text-sm text-secondary">
-                    Noch kein Konto? 
-                    <button type="button" class="font-semibold text-accent-primary-rose hover:underline" data-auth-toggle="register">
-                        Jetzt registrieren
-                    </button>
-                </p>
-            </form>
-        >             <form id="register-form" class="auth-form glass-premium p-8 rounded-xl space-y-6 hidden">
-            <h2 class="text-2xl font-bold text-gradient text-center">Konto erstellen</h2>
-            <div class="space-y-4">
-                <label class="flex flex-col gap-1">
-                    <span class="text-secondary text-sm">Dein Name</span>
-                    <input id="register-name" type="text" class="form-input" required autocomplete="name">
-                </label>
-                <label class="flex flex-col gap-1">
-                    <span class="text-secondary text-sm">E-Mail</span>
-                    <input id="register-email" type="email" class="form-input" required autocomplete="email">
-                </label>
-                <label class="flex flex-col gap-1">
-                    <span class="text-secondary text-sm">Passwort</span>
-                    <input id="register-pass" type="password" class="form-input" required autocomplete="new-password">
-                </label>
-            </div>
-            <button type="submit" class="cta-primary-glow w-full">
-                <span class="btn-text">Konto erstellen & Familie gründen</span>
-            </button>
-            <p class="text-center text-sm text-secondary">
-                Bereits ein Konto? 
-                <button type="button" class="font-semibold text-accent-primary-rose hover:underline" data-auth-toggle="login">
-                    Hier anmelden
-                </button>
-            </p>
-        </form>
-    </div>
-</div>
   <div id="modal-container"></div>
 
-  <script type="module" src="./src/main.js"></script>
+  <script type="module" src="src/main.js"></script>
+  
+  <script>
+    lucide.createIcons();
+  </script>
 </body>
 </html>

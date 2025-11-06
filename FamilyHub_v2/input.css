@@ -53,18 +53,41 @@
     .text-secondary {
         color: var(--text-secondary);
     }
+    
+    /* --- Seiten-Übergangs-Animationen --- */
+    .page-fade-out {
+        animation: fadeOut 0.2s ease-out forwards;
+    }
+    .page-fade-in {
+        animation: fadeIn 0.3s ease-in forwards;
+    }
+
+    @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(10px); }
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 }
 
 @layer components {
 
     /* --- A. Hauptkomponenten --- */
     .glass-premium {
-        background: var(--glass-bg);
-        backdrop-filter: blur(16px) saturate(180%);
-        border-radius: var(--radius-container);
-        border: 1.5px solid var(--border-glass);
-        box-shadow: 0 4px 32px 0 rgba(0,0,0,0.15);
-        transition: box-shadow var(--transition-main), background var(--transition-main);
+        @apply bg-background-glass border border-border-glass backdrop-blur-lg;
+        box-shadow: var(--shadow-card);
+    }
+
+    .post-card {
+        @apply glass-premium p-4 sm:p-6 mb-6; /* Bündelt existierende Stile */
+        @apply transition-all duration-200 ease-in-out;
+    }
+
+    .post-card:hover {
+        @apply scale-[1.01];
+        box-shadow: var(--shadow-glow-hover);
     }
     
     .cta-primary-glow {
@@ -199,7 +222,20 @@
     }
 
     /* --- E. Desktop-Dashboard (Unverändert) --- */
-    /* ... (nav-item-desktop, nav-badge-premium, widget-card etc.) ... */
+    .nav-item-desktop {
+        @apply flex items-center gap-3 p-3 rounded-lg text-secondary font-medium;
+        @apply transition-all duration-200;
+    }
+    .nav-item-desktop:hover {
+        @apply bg-white/10 text-white;
+    }
+    .nav-item-desktop.active {
+        @apply bg-accent-glow/20 text-accent-glow;
+    }
+    .nav-badge-premium {
+        @apply ml-auto bg-accent-glow text-white text-xs font-bold px-2 py-0.5 rounded-full;
+        box-shadow: var(--shadow-glow);
+    }
 
     /* * =========================================
      * 4. NEUE MODUL-STILE (POLL & GRATITUDE)
@@ -309,6 +345,34 @@
           @apply w-10 h-10 rounded-full object-cover;
       }
 
+    /* --- L. Pinnwand-Komponenten --- */
+    .pinnwand-column {
+        @apply w-full md:w-80 lg:w-96 flex-shrink-0;
+    }
+    .pinnwand-cards {
+        @apply space-y-3 min-h-[100px] p-1 rounded-lg;
+        /* Stil für Drag-Over */
+        @apply transition-colors duration-200;
+    }
+    .pinnwand-cards.drag-over {
+        @apply bg-white/10;
+    }
+    .pinnwand-card {
+        @apply glass-premium p-4 rounded-lg cursor-grab;
+        /* NEU: Flexbox für Button */
+        @apply flex justify-between items-center gap-2;
+        transition: all 0.2s ease;
+    }
+    .pinnwand-card:active {
+        @apply cursor-grabbing scale-105 bg-primary-bg;
+    }
+    .pinnwand-card.dragging {
+        @apply opacity-50 scale-95;
+    }
+    .pinnwand-card.invisible {
+        @apply opacity-0;
+    }
+
     /* --- N. Challenges & Leaderboard --- */
         .leaderboard-item {
             @apply glass-premium p-3 rounded-lg flex items-center gap-4;
@@ -341,4 +405,219 @@
             @apply h-full bg-primary-rose rounded-full transition-all duration-500;
             box-shadow: var(--shadow-glow);
         }
+        
+    /* --- K. Modal-System --- */
+    .modal {
+        @apply fixed inset-0 z-[99] flex items-center justify-center p-4;
+        
+        /* Der "Sophisticated Glow"-Hintergrund-Overlay */
+        background-color: rgba(10, 9, 8, 0.5); /* --primary-bg mit 50% Transparenz */
+        @apply backdrop-blur-md;
+        
+        @apply opacity-0 transition-opacity duration-300 ease-in-out;
+    }
+
+    .modal-open {
+        @apply opacity-100;
+    }
+
+    /* * Sorgt für das "Hineinzoomen" der Karte (der .glass-premium-Container)
+     * wenn das Modal geöffnet wird.
+     */
+    .modal .glass-premium {
+        @apply transition-transform duration-300 ease-in-out scale-95;
+    }
+    .modal-open .glass-premium {
+        @apply scale-100;
+    }
+    
+    /* --- M. Einstellungs-Layout --- */
+    .settings-layout {
+        @apply grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6;
+    }
+    .settings-nav {
+        @apply flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible pb-2 lg:pb-0;
+    }
+    .settings-nav-item {
+        @apply flex items-center gap-3 p-3 rounded-lg text-secondary font-medium whitespace-nowrap;
+        @apply transition-all duration-200;
+    }
+    .settings-nav-item:hover {
+        @apply bg-white/10 text-white;
+    }
+    .settings-nav-item.active {
+        @apply bg-accent-glow/20 text-accent-glow;
+        font-weight: 600;
+    }
+    .settings-nav-item:disabled {
+        @apply opacity-40 cursor-not-allowed;
+    }
+    .settings-nav-item i {
+        @apply w-5 h-5 flex-shrink-0;
+    }
+
+    /* --- N. Galerie-Post-Komponente --- */
+    .gallery-post-grid {
+        @apply grid gap-2 rounded-lg overflow-hidden border border-border-glass;
+    }
+    /* Dynamisches Grid basierend auf der Anzahl der Bilder (max 4) */
+    .gallery-post-grid.count-1 { @apply grid-cols-1; }
+    .gallery-post-grid.count-2 { @apply grid-cols-2; }
+    .gallery-post-grid.count-3 { @apply grid-cols-3; }
+    .gallery-post-grid.count-4 { @apply grid-cols-2; } /* 2x2 Grid bei 4 Bildern */
+
+    .gallery-post-item {
+        @apply aspect-square bg-white/5;
+    }
+    .gallery-post-item img {
+        @apply w-full h-full object-cover;
+    }
+    
+    /* --- O. Kalender-Dashboard --- */
+    .btn-filter {
+        @apply px-4 py-2 rounded-full text-sm font-semibold border;
+        @apply transition-all duration-200;
+    }
+    .btn-filter:hover {
+        @apply text-white bg-white/10;
+    }
+    .btn-filter.active {
+        @apply text-accent-glow bg-accent-glow/20;
+    }
+    
+    /* Stellt sicher, dass das Monats-Grid flexibel ist */
+    #calendar-body {
+        @apply flex flex-col flex-1;
+    }
+    .calendar-row {
+        @apply grid grid-cols-7 gap-1 flex-1;
+    }
+    .calendar-cell {
+        @apply bg-white/5 border border-transparent rounded-lg p-2;
+        @apply transition-colors duration-200 cursor-pointer;
+        min-height: 80px; /* Mindesthöhe für Desktop */
+    }
+    .calendar-cell:hover {
+        @apply bg-white/10 border-border-glass;
+    }
+    .calendar-cell.empty {
+        @apply bg-transparent pointer-events-none;
+    }
+    .calendar-cell.today {
+        @apply bg-accent-glow/20;
+    }
+    .calendar-date-label {
+        @apply text-xs font-bold text-secondary;
+    }
+    .calendar-date-label.today {
+        @apply text-accent-glow;
+    }
+    .calendar-events {
+        @apply mt-1 space-y-1;
+    }
+    .event-bar {
+        @apply text-xs bg-accent-glow/50 text-white p-1 rounded truncate;
+    }
+    
+    /* Agenda-Ansicht */
+    .agenda-item {
+        @apply flex items-center gap-4 p-3 bg-white/5 rounded-lg;
+    }
+    .agenda-date-box {
+        @apply flex flex-col items-center justify-center w-12 h-12 rounded-lg bg-accent-glow/20 text-accent-glow flex-shrink-0;
+    }
+    .agenda-date-box .month {
+        @apply text-xs font-bold uppercase;
+    }
+    .agenda-date-box .day {
+        @apply text-xl font-bold -mt-1;
+    }
+    .agenda-info .title {
+        @apply font-semibold text-white;
+    }
+     .agenda-info .time {
+        @apply text-sm text-secondary;
+    }
+
+    /* --- P. App-Dashboard (Menü) --- */
+    .app-dashboard-grid {
+        @apply grid grid-cols-2 lg:grid-cols-4 gap-4;
+    }
+    .app-dashboard-item {
+        @apply glass-premium p-4 rounded-xl text-left;
+        @apply transition-all duration-200;
+    }
+    .app-dashboard-item:hover {
+        @apply scale-105 border-accent-glow/50;
+    }
+    .app-dashboard-item:disabled {
+        @apply opacity-40 cursor-not-allowed scale-100 border-border-glass;
+    }
+    .app-dashboard-icon {
+        @apply w-12 h-12 rounded-lg flex items-center justify-center mb-3;
+    }
+    .app-dashboard-icon i {
+        @apply w-6 h-6;
+    }
+    .app-dashboard-label {
+        @apply text-lg font-semibold text-white;
+    }
+
+    /* --- Q. Chronik-Modul --- */
+    .chronik-day-group {
+        @apply mb-6;
+    }
+    .chronik-day-title {
+        @apply text-lg font-semibold text-white mb-3 pb-2 border-b border-border-glass;
+    }
+    .chronik-item {
+        @apply flex items-center gap-3 p-3 rounded-lg;
+        @apply transition-all duration-200 cursor-pointer;
+    }
+    .chronik-item:hover {
+        @apply bg-white/10;
+    }
+    .chronik-icon {
+        @apply w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-white/10 text-secondary;
+    }
+    .chronik-icon i {
+        @apply w-5 h-5;
+    }
+    .chronik-info .title {
+        @apply font-medium text-white;
+    }
+    .chronik-info .time {
+        @apply text-xs text-secondary;
+    }
+    
+    /* --- R. Toggle-Schalter (NEU) --- */
+    .toggle-wrapper {
+        @apply flex items-center justify-between gap-4 p-4 rounded-lg bg-white/5;
+    }
+    .toggle-switch {
+        @apply relative inline-block w-11 h-6 flex-shrink-0;
+    }
+    .toggle-switch input {
+        @apply opacity-0 w-0 h-0;
+    }
+    .slider {
+        @apply absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-white/20;
+        transition: .4s;
+        border-radius: 34px;
+    }
+    .slider:before {
+        @apply absolute h-4 w-4 bg-white;
+        content: "";
+        left: 4px;
+        bottom: 4px;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .slider {
+        background-color: var(--accent-glow);
+        box-shadow: var(--shadow-glow);
+    }
+    input:checked + .slider:before {
+        transform: translateX(20px);
+    }
 }

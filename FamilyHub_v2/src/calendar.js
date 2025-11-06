@@ -39,12 +39,30 @@ export function renderCalendar(listeners) {
     );
     
     listeners.calendar = onSnapshot(eventsQuery, (snapshot) => {
-        events = snapshot.docs.map(doc => ({ 
-            id: doc.id, 
-            ...doc.data(),
-            // Konvertiere Firestore Timestamps zu JS Date-Objekten
-            date: doc.data().date.toDate()
-        }));
+        snapshot.docChanges().forEach(change => {
+            const event = { 
+                id: change.doc.id, 
+                ...change.doc.data(),
+                date: change.doc.data().date.toDate()
+            };
+
+            if (change.type === "added") {
+                events.push(event);
+            }
+            if (change.type === "modified") {
+                const index = events.findIndex(e => e.id === event.id);
+                if (index > -1) {
+                    events[index] = event;
+                }
+            }
+            if (change.type === "removed") {
+                const index = events.findIndex(e => e.id === event.id);
+                if (index > -1) {
+                    events.splice(index, 1);
+                }
+            }
+        });
+        
         // Ansicht basierend auf dem aktuellen State neu rendern
         renderCurrentView();
     }, (error) => {
@@ -230,14 +248,14 @@ function isSameDay(a, b) {
 // --- Modals (Nutzung von ui.js) ---
 
 if (!window.openCreateEventModal) {
-    window.openCreateEventModal = (dateString = new Date().toISOString().split('T')[0]) => {
+    window.openCreateEventModal = (dateString = new Date().toISOString().split('T')[0], defaultTitle = '') => {
         const modalId = 'modal-create-event';
         const modalContent = `
             <form id="create-event-form" class="space-y-4">
                 <h2 class="text-2xl font-bold text-gradient mb-6">Neuer Termin</h2>
                 <div>
                     <label for="event-title" class="form-label text-sm text-secondary mb-1 block">Titel</label>
-                    <input type="text" id="event-title" name="event-title" class="form-input" required />
+                    <input type="text" id="event-title" name="event-title" class="form-input" required value="${defaultTitle}" />
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -264,9 +282,8 @@ if (!window.openCreateEventModal) {
         
         openModal(Card(modalContent, { variant: 'premium', className: 'max-w-lg w-full' }), modalId);
         if (typeof lucide !== 'undefined') lucide.createIcons();
-
-        document.getElementById('create-event-form').onsubmit = window.handleEventSubmit;
-    }
+    document.getElementById('create-event-form').onsubmit = window.handleEventSubmit;
+}
 }
 
 if (!window.handleEventSubmit) {

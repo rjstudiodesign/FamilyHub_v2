@@ -9,10 +9,10 @@ let membersData = null;
 /**
  * Simuliert den Anmelde- und Familienlade-Prozess.
  */
-export function initAuth(onAuthSuccess) {
+export function initAuthSession(user, onAuthSuccess) {
   setTimeout(() => {
     // 1. Simulierter Firebase Auth User
-    authUser = {
+    authUser = user || {
       uid: 'demo-user-uid-123',
       name: 'Rj Studiodesign',
       email: 'rj@familyhub.local',
@@ -68,4 +68,15 @@ export function getCurrentUser() {
     currentUserData: userData,
     membersData: membersData
   };
+}
+
+/**
+ * Bereinigt die globalen Sitzungsdaten.
+ */
+export function clearAuthSession() {
+  authUser = null;
+  familyId = null;
+  userData = null;
+  membersData = null;
+  console.log("Auth-Sitzung bereinigt.");
 }

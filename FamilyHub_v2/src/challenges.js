@@ -4,13 +4,23 @@ import {
 } from './firebase.js';
 import { getCurrentUser } from './auth.js';
 import { EmptyStateCard, Card } from './components/Card.js';
-import { showNotification, closeModal } from './ui.js'; // KORREKTUR: closeModal importiert
-import { render } from './components/index.js'; // KORREKTUR: Echten Renderer importiert
+import { showNotification, closeModal } from './ui.js'; 
+import { render } from './components/index.js'; 
 
 /**
  * Initialisiert die 'Challenges'-Seite.
  */
 export function renderChallenges(listeners) {
+    // KORREKTUR: Sicherstellen, dass die Container existieren, BEVOR sie befüllt werden
+    const leaderboardContainer = document.getElementById('leaderboard-container');
+    const challengesContainer = document.getElementById('challenges-container');
+
+    if (!leaderboardContainer || !challengesContainer) {
+        // Dieser Fehler tritt auf, wenn `index.html` veraltet ist
+        console.error("Challenges-DOM-Struktur nicht gefunden. `index.html` ist veraltet.");
+        return; 
+    }
+    
     renderLeaderboard();
     renderActiveChallenges(listeners);
 }
@@ -21,7 +31,7 @@ export function renderChallenges(listeners) {
 function renderLeaderboard() {
     const { membersData } = getCurrentUser();
     const container = document.getElementById('leaderboard-container');
-    if (!container) return;
+    if (!container) return; // Sollte durch die Prüfung oben abgedeckt sein
 
     const sortedMembers = Object.values(membersData)
         .sort((a, b) => (b.points || 0) - (a.points || 0));
@@ -49,7 +59,7 @@ function renderLeaderboard() {
 function renderActiveChallenges(listeners) {
     const { currentFamilyId } = getCurrentUser();
     const container = document.getElementById('challenges-container');
-    if (!container) return;
+    if (!container) return; // Sollte durch die Prüfung oben abgedeckt sein
 
     container.innerHTML = '<div class="spinner mx-auto"></div>'; 
 
@@ -62,7 +72,7 @@ function renderActiveChallenges(listeners) {
             const emptyHTML = EmptyStateCard(
                 'Keine Challenges aktiv',
                 'Erstelle die erste Challenge für deine Familie!',
-                '🏆', 
+                'award', // Gültiges Icon
                 `<button class="cta-primary-glow" onclick="window.openCreateChallengeModal()">
                     <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Challenge erstellen
                  </button>`
@@ -86,6 +96,17 @@ function renderActiveChallenges(listeners) {
 }
 
 /**
+ * NEU: Whitelist für Lucide-Icons, um Datenfehler abzufangen.
+ */
+const VALID_ICONS = ['award', 'walk', 'run', 'flag', 'trophy', 'star', 'heart', 'check-circle'];
+function getValidIcon(iconName) {
+    if (iconName && VALID_ICONS.includes(iconName)) {
+        return iconName;
+    }
+    return 'award'; // Standard-Fallback
+}
+
+/**
  * Erstellt das HTML für eine einzelne Challenge-Karte.
  */
 function renderChallengeCard(challenge) {
@@ -105,10 +126,13 @@ function renderChallengeCard(challenge) {
         }
     }
 
+    // NEU: Verwendet die getValidIcon-Funktion
+    const icon = getValidIcon(challenge.icon);
+
     return `
     <div class="challenge-card">
         <div class="challenge-icon">
-            <i data-lucide="${challenge.icon || 'award'}"></i>
+            <i data-lucide="${icon}"></i>
         </div>
         <div class="flex-1">
             <h4 class="font-semibold text-white">${challenge.title}</h4>
@@ -178,6 +202,7 @@ if (!window.updateChallengeProgress) {
                 ${Card(modalContent, { variant: 'premium', className: 'animate-slide-in-up max-w-md w-full', padding: 'lg' })}
             </div>
         `;
+        // HINWEIS: Nutzt das globale modal-container, nicht 'app-content'
         render(modalHTML, document.getElementById('modal-container'));
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
@@ -195,7 +220,7 @@ if (!window.updateChallengeProgress) {
                     [userField]: value // Setzt den Wert (oder 'increment(value)')
                 });
                 showNotification("Fortschritt gespeichert!", "success");
-                closeModal(); // KORREKTUR: Diese Funktion ist jetzt importiert
+                closeModal(); 
             } catch (error) {
                 console.error("Error updating progress:", error);
                 showNotification("Fehler beim Speichern", "error");
@@ -222,7 +247,7 @@ if (!window.openCreateChallengeModal) {
                     <input type="text" id="challenge-desc" name="challenge-desc" class="form-input">
                 </div>
                 <div>
-                    <label class="text-sm text-secondary mb-1 block" for="challenge-icon">Icon (Lucide-Name, z.B. 'walk', 'award')</label>
+                    <label class="text-sm text-secondary mb-1 block" for="challenge-icon">Icon (z.B. 'walk', 'star', 'trophy')</label>
                     <input type="text" id="challenge-icon" name="challenge-icon" class="form-input" value="award">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
@@ -274,11 +299,19 @@ if (!window.handleCreateChallenge) {
         if (!newChallenge.title || isNaN(newChallenge.target)) {
             return showNotification("Titel und Zielwert sind erforderlich", "warning");
         }
+        
+        // Prüfen, ob das Icon gültig ist (optional, aber guter Stil)
+        if (!VALID_ICONS.includes(newChallenge.icon)) {
+            showNotification(`Ungültiges Icon. Wähle eines: ${VALID_ICONS.join(', ')}`, "warning");
+            newChallenge.icon = 'award'; // Setze auf Standard
+            document.getElementById('challenge-icon').value = 'award';
+            return; // Stoppe den Submit, damit der Nutzer korrigieren kann (oder auch nicht, je nach UX-Wunsch)
+        }
 
         try {
             await addDoc(collection(db, 'families', currentFamilyId, 'familyChallenges'), newChallenge);
             showNotification("Challenge erstellt!", "success");
-            closeModal(); // KORREKTUR: Diese Funktion ist jetzt importiert
+            closeModal(); 
         } catch (error) {
             console.error("Error creating challenge:", error);
             showNotification("Fehler beim Erstellen", "error");

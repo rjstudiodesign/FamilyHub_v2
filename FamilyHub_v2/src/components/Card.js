@@ -27,7 +27,7 @@
               imageUrl,
               postId,
               actions,
-              post // Bündele alle Daten für PollCard
+              post // Bündele alle Daten für PollCard etc.
           } = data;
 
           const header = `
@@ -51,15 +51,21 @@
               </div>
           `;
 
-          // --- LOGIK-Integration für Poll/Gratitude ---
+          // --- NEU: Erweiterte LOGIK-Integration für Gallery ---
           let body;
           if (post.type === 'poll') {
-              // 'PollCard' wird aus 'feed.js' importiert und hier aufgerufen
               body = window.PollCard(post);
           } else if (post.type === 'gratitude') {
-              // 'GratitudeCard' wird aus 'feed.js' importiert und hier aufgerufen
               body = window.GratitudeCard(post);
+          } else if (post.type === 'forecast') {
+              body = window.ForecastCard({ post });
+          } else if (post.type === 'memory') {
+              body = window.MemoryCard({ post });
+          } else if (post.type === 'gallery') {
+              // 'GalleryPostCard' wird aus 'feed.js' importiert und hier aufgerufen
+              body = window.GalleryPostCard(post);
           } else {
+              // Standard-Post
               body = `
               <div class="post-content mb-4">
                   <p class="text-white whitespace-pre-wrap break-words">${content || ''}</p>
@@ -82,12 +88,15 @@
 
           const footer = renderActions(actions);
 
+          // Für spezielle Karten rendern wir keinen Standard-Footer
+          const finalFooter = (post.type === 'forecast' || post.type === 'memory' || post.type === 'gallery') ? '' : footer;
+
           return `
               <div class="post-card" data-post-id="${postId}">
                   ${header}
                   ${body}
                   ${image}
-                  ${footer}
+                  ${finalFooter}
               </div>
           `;
       }

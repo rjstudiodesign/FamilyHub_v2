@@ -1,7 +1,6 @@
 // firebase.js – Initialisierung für FamilyHub
-// FINALE KORRIGIERTE VERSION
-
-import { initializeApp } from 'https://esm.sh/firebase/app';
+// FINALE KORRIGIERTE VERSION (INKL. AUTH-FUNKTIONEN)
+import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
   collection,
@@ -22,16 +21,26 @@ import {
   increment,
   arrayUnion,
   arrayRemove
-} from 'https://esm.sh/firebase/firestore';
-import { getAuth } from 'https://esm.sh/firebase/auth';
+} from 'firebase/firestore';
+
+// NEUE AUTH-IMPORTE
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile
+} from 'firebase/auth';
+
 import {
   getStorage,
   ref,
   uploadBytes,
   uploadBytesResumable,
   getDownloadURL,
-  deleteObject // Fehlte ebenfalls oft
-} from 'https://esm.sh/firebase/storage';
+  deleteObject
+} from 'firebase/storage';
 
 // Ihre Firebase Konfiguration
 const firebaseConfig = {
@@ -51,11 +60,38 @@ const storage = getStorage(app);
 
 // Alles exportieren
 export {
-  db, storage, auth,
+  db,
+  storage,
+  auth,
   // Firestore
-  collection, query, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp,
-  orderBy, runTransaction, getDocs, where, updateDoc, getDoc, setDoc,
-  writeBatch, increment, arrayUnion, arrayRemove,
+  collection,
+  query,
+  onSnapshot,
+  addDoc,
+  doc,
+  deleteDoc,
+  serverTimestamp,
+  orderBy,
+  runTransaction,
+  getDocs,
+  where,
+  updateDoc,
+  getDoc,
+  setDoc,
+  writeBatch,
+  increment,
+  arrayUnion,
+  arrayRemove,
   // Storage
-  ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject
+  ref,
+  uploadBytes,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+  // Auth (NEU)
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile
 };

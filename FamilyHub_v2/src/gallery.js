@@ -4,7 +4,8 @@
 import { 
     db, storage, 
     collection, query, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp, orderBy, 
-    ref, getDownloadURL, uploadBytesResumable 
+    ref, getDownloadURL, uploadBytesResumable,
+    where, getDocs // NEU: Nötig für die Feed-Post-Logik
 } from './firebase.js'; // <-- ALLE Firebase-Funktionen kommen jetzt von hier
 import { getCurrentUser } from './auth.js';
 import { openModal, closeModal, showNotification, showButtonSpinner, hideButtonSpinner } from './ui.js';
@@ -33,9 +34,32 @@ export function renderGallery(listeners) {
     const mediaQuery = query(collection(db, 'families', currentFamilyId, 'media'), orderBy('createdAt', 'desc'));
 
     galleryUnsubscribe = onSnapshot(mediaQuery, (snapshot) => {
-        galleryMedia = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (snapshot.empty) {
+            showEmptyState(true);
+            const skeleton = document.getElementById('gallery-skeleton');
+            if(skeleton) skeleton.classList.add('hidden');
+            return;
+        }
+
+        snapshot.docChanges().forEach(change => {
+            const media = { id: change.doc.id, ...change.doc.data() };
+            
+            if (change.type === "added") {
+                galleryMedia.unshift(media); // Hinzufügen am Anfang, da nach 'desc' sortiert
+            }
+            if (change.type === "modified") {
+                const index = galleryMedia.findIndex(m => m.id === media.id);
+                if (index > -1) galleryMedia[index] = media;
+            }
+            if (change.type === "removed") {
+                const index = galleryMedia.findIndex(m => m.id === media.id);
+                if (index > -1) galleryMedia.splice(index, 1);
+            }
+        });
+
         renderGalleryAlbums();
         if (typeof lucide !== 'undefined') lucide.createIcons();
+
     }, (error) => {
         console.error('Error loading media:', error);
         showNotification('Fehler beim Laden der Galerie.', 'error');
@@ -215,6 +239,7 @@ window.handleGalleryUpload = function(event) {
     }, 50);
 }
 
+// === NEU: INTELLIGENTE UPLOAD-LOGIK ===
 window.startUpload = async function() {
     const submitBtn = document.getElementById('upload-submit-btn');
     showButtonSpinner(submitBtn);
@@ -227,11 +252,17 @@ window.startUpload = async function() {
 
         const files = window.uploadFiles;
         const description = document.getElementById('upload-description').value.trim();
+        const uploadedImageUrls = []; // Speichert die URLs der neuen Bilder
 
         const uploadPromises = files.map(async (file) => {
             const storageRef = ref(storage, `media/${currentFamilyId}/${Date.now()}_${file.name}`);
             const snapshot = await uploadBytesResumable(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
+
+            // Nur Bild-URLs für die Feed-Vorschau sammeln
+            if (file.type.startsWith('image/')) {
+                uploadedImageUrls.push(downloadURL);
+            }
 
             await addDoc(collection(db, 'families', currentFamilyId, 'media'), {
                 fileName: file.name,
@@ -249,6 +280,13 @@ window.startUpload = async function() {
 
         closeModal('template-upload-modal');
         showNotification(`${files.length} Datei(en) erfolgreich hochgeladen!`, 'success');
+
+        // --- NEU: Feed-Post erstellen ---
+        if (uploadedImageUrls.length > 0) {
+            await createGalleryFeedPost(uploadedImageUrls, currentUser, currentFamilyId);
+        }
+        // --- ENDE ---
+
     } catch (error) {
         console.error('Upload error:', error);
         showNotification('Fehler beim Upload.', 'error');
@@ -259,6 +297,48 @@ window.startUpload = async function() {
         if (input) input.value = '';
     }
 }
+
+/**
+ * Erstellt einen Feed-Post, wenn dies der erste Upload in einem neuen Monat ist.
+ */
+async function createGalleryFeedPost(uploadedImageUrls, currentUser, currentFamilyId) {
+    try {
+        const formatter = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
+        const albumTitle = `Neue Fotos im ${formatter.format(new Date())}`;
+
+        // 1. Prüfen, ob für diesen Titel bereits ein Post existiert
+        const postsRef = collection(db, 'families', currentFamilyId, 'posts');
+        const q = query(postsRef, 
+            where('type', '==', 'gallery'),
+            where('galleryTitle', '==', albumTitle)
+        );
+        
+        const existingPosts = await getDocs(q);
+        
+        if (existingPosts.empty) {
+            // 2. Keiner existiert -> Neuen Post erstellen
+            await addDoc(postsRef, {
+                type: 'gallery',
+                galleryTitle: albumTitle,
+                thumbnailUrls: uploadedImageUrls.slice(0, 4), // Nimm die ersten 4 Bilder
+                authorName: "FamilyHub Galerie",
+                authorId: 'system',
+                authorAvatar: 'https://ui-avatars.com/api/?name=Hub&background=A04668&color=F2F4F3&bold=true',
+                createdAt: serverTimestamp(),
+                participants: null // Öffentlich für alle
+            });
+            showNotification("Neues Album im Feed geteilt!", "success");
+        } else {
+            // 3. Post existiert bereits -> Thumbnails aktualisieren (optional, für später)
+            console.log(`Galerie-Post für '${albumTitle}' existiert bereits. Überspringe Erstellung.`);
+        }
+    } catch (error) {
+        console.error("Fehler beim Erstellen des Galerie-Feed-Posts:", error);
+        // Dies ist ein Non-Blocking-Error, der Upload war trotzdem erfolgreich.
+    }
+}
+// === ENDE DER INTELLIGENTEN LOGIK ===
+
 
 window.openMediaDetail = function(media) {
     openModal(`
