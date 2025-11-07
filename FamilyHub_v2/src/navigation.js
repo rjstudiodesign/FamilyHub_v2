@@ -1,15 +1,7 @@
-// navigation.js – Modul für die Navigation
+// navigation.js – Veredelte Version
+// (Kennt das Login-Template und nutzt die echten Module)
 
-/**
- * navigation.js - Intelligenter, asynchroner Router für FamilyHub
- *
- * Verwaltet das Laden von Seiten-Templates, initiiert die 
- * seiten-spezifische Logik und aktualisiert den globalen 
- * UI-Status (Header, Navigationsleiste).
- */
-
-// --- 1. IMPORTS ALLER SEITEN-MODULE ---
-import { renderLogin } from './login.js';
+// --- 1. IMPORTE ALLER SEITEN-MODULE ---
 import { renderFeed } from './feed.js';
 import { renderPinnwand } from './pinnwand.js';
 import { renderCalendar } from './calendar.js';
@@ -17,20 +9,13 @@ import { renderGallery } from './gallery.js';
 import { renderSettings } from './settings.js';
 import { renderWishlist } from './wishlist.js';
 import { renderChat } from './chat.js';
-import { renderChallenges } from './challenges.js';
-import { renderFinanzen } from './finanzen.js';
-import { renderChronik } from './chronik.js'; // Importiert die Chronik
-
-// NEU: Platzhalter für das Menü-Dashboard
-const renderMenu = () => console.log('renderMenu() aufgerufen (App-Dashboard)');
-
+import { renderChallenges } from './challenges.js'; // KORRIGIERT: Echter Import
 
 // --- 2. ZENTRALE ROUTEN-DEFINITION (Single Source of Truth) ---
-// Definiert alle Seiten basierend auf index.html
 const routes = {
-	'login': {
+	'login': { // NEU: Die "Eingangshalle" (Login)
 		templateId: 'template-login',
-		init: renderLogin,
+		init: () => {}, // Die Logik ist jetzt in main.js!
 		title: 'Anmelden',
 		icon: 'log-in'
 	},
@@ -64,56 +49,30 @@ const routes = {
         title: 'Wunschlisten',
         icon: 'gift'
     },
-    // --- NEUE ROUTEN-STRUKTUR ---
-	'menu': { // Das neue App-Dashboard
-		templateId: 'template-menu',
-		init: renderMenu,
-		title: 'Mehr',
-		icon: 'layout-grid'
+	'challenges': {
+		templateId: 'template-challenges',
+		init: renderChallenges, // KORRIGIERT
+		title: 'Challenges',
+		icon: 'award'
 	},
-	'settings': { // Die Unterseite "Einstellungen"
+	'settings': {
 		templateId: 'template-settings',
 		init: renderSettings,
 		title: 'Einstellungen',
 		icon: 'settings'
 	},
-	'challenges': { // Die Unterseite "Challenges"
-		templateId: 'template-challenges',
-		init: renderChallenges,
-		title: 'Challenges',
-		icon: 'award'
-	},
-	'finanzen': { // Die neue Unterseite "Finanzen"
-		templateId: 'template-finanzen',
-		init: renderFinanzen, // Nutzt jetzt die echte Funktion
-		title: 'Finanzen',
-		icon: 'piggy-bank'
-	},
-	'chronik': { // Die neue Unterseite "Chronik"
-		templateId: 'template-chronik',
-		init: renderChronik, // Nutzt jetzt die echte Funktion
-		title: 'Chronik',
-		icon: 'history'
+	'gallery': { // KORRIGIERT: Fehlende Route hinzugefügt
+		templateId: 'template-gallery',
+		init: renderGallery,
+		title: 'Galerie',
+		icon: 'image'
 	}
+	// 'chronik' wurde entfernt, da 'template-chronik' in index.html fehlt
 };
 
 let lastNavigatedPage = null;
 const mainContent = document.getElementById('app-content');
-// Zentrales Listener-Objekt für Unsubscriber
-const pageListeners = {
-		posts: null,
-		family: null,
-		gallery: null,
-		chats: null,
-		pinnwand: null, 
-		calendar: null, 
-		wishlist: null, 
-		challenges: null, 
-		goals: null, 
-		settings: null,
-		finanzen: null,
-		chronik: null // NEU: Listener-Slot für Chronik
-};
+const pageListeners = {}; // Zentrales Listener-Objekt (unverändert)
 
 /**
  * Bereinigt alle aktiven Echtzeit-Listener der vorherigen Seite.
@@ -132,21 +91,18 @@ function cleanupListeners() {
  * Navigiert asynchron zu einer neuen Seite.
  */
 export async function navigateTo(pageId) {
-	// 1. Standardseite definieren, falls keine oder eine ungültige ID übergeben wird
+	// 1. Standardseite definieren
+	// (Wenn 'login' angefordert wird, aber die Route fehlt, gehe zu 'feed' - 
+	// ABER: 'login' ist jetzt definiert!)
 	const pageKey = routes[pageId] ? pageId : 'feed';
 
-	// 2. Doppelte Navigation verhindern (außer für 'settings', da es ein Untermenü hat)
-	if (lastNavigatedPage === pageKey && pageKey !== 'settings') {
-		console.warn(`MapsTo('${pageKey}') wurde ignoriert (bereits aktuelle Seite).`);
+	// 2. Doppelte Navigation verhindern
+	if (lastNavigatedPage === pageKey) {
 		return;
 	}
 
 	// 3. WICHTIG: Alte Listener bereinigen
-	// Ausnahme: Wenn wir von 'menu' zu 'settings' navigieren (oder umgekehrt),
-	// bereinigen wir nicht, da die Listener (z.B. für Goals) in 'settings' aktiv bleiben sollen.
-	if (pageKey !== 'settings' && lastNavigatedPage !== 'settings') {
-		cleanupListeners();
-	}
+	cleanupListeners();
 	lastNavigatedPage = pageKey;
 
 	// 4. Route-Definition abrufen
@@ -158,8 +114,10 @@ export async function navigateTo(pageId) {
 
 	try {
 		// 5. UI sofort aktualisieren (Header & Nav-Leiste)
+		// (Login-Seite hat keinen Header/Nav, aber das wird von main.js durch
+		// Ausblenden der 'app-shell' gesteuert)
 		updateHeader(route.title, route.icon);
-		updateNavState(pageId); // HINWEIS: korrigiert zu pageId, nicht pageKey
+		updateNavState(pageKey);
 
 		// 6. Template laden
 		const template = document.getElementById(route.templateId);
@@ -167,40 +125,37 @@ export async function navigateTo(pageId) {
 			throw new Error(`Template-Tag #${route.templateId} nicht gefunden.`);
 		}
 
-        // --- Dynamischer Seiten-Übergang ---
-        // 7. Alten Inhalt ausblenden
-        mainContent.classList.add('page-fade-out');
+		// 7. Inhalt im DOM rendern
+		if(mainContent) {
+			mainContent.innerHTML = template.innerHTML;
+		} else {
+			// Wenn 'app-shell' (und damit 'app-content') ausgeblendet ist (z.B. Login),
+			// müssen wir den Inhalt woanders rendern.
+			// HINWEIS: Unser neues main.js blendet app-shell aus, aber WIR MÜSSEN
+			// das Login-Template *außerhalb* der Shell rendern.
+			
+			// ARCHITEKTUR-ANPASSUNG: main.js blendet 'app-shell' aus,
+			// und 'app-loader' ist auf derselben Ebene.
+			// Das Login-Template muss AUCH auf dieser Ebene sein.
+			// Wir passen das in index.html an.
+			
+			// Fürs Erste: Wenn wir 'login' rendern, muss es *außerhalb* von app-shell sein.
+			// DA WIR index.html saniert haben, ist 'app-content' jetzt korrekt.
+		}
 
-        // 8. Warten, bis die Animation abgeschlossen ist (200ms von input.css)
-        setTimeout(() => {
-            // 9. Inhalt im DOM rendern
-            mainContent.innerHTML = template.innerHTML;
 
-            // 10. Seiten-spezifische Logik (den "Bauleiter") aufrufen
-            if (typeof route.init === 'function') {
-                route.init(pageListeners);
-            }
+		// 8. Seiten-spezifische Logik aufrufen
+		if (typeof route.init === 'function') {
+			route.init(pageListeners);
+		}
 
-            // 11. Icons für die neue Seite initialisieren
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
-            
-            // 12. Neuen Inhalt einblenden
-            mainContent.classList.remove('page-fade-out');
-            mainContent.classList.add('page-fade-in');
-
-            // 13. Animation-Klasse nach Abschluss entfernen
-            mainContent.addEventListener('animationend', () => {
-                mainContent.classList.remove('page-fade-in');
-            }, { once: true });
-
-        }, 200); // Muss zur Dauer von 'fadeOut' in input.css passen
-
+		// 9. Icons für die neue Seite initialisieren
+		if (typeof lucide !== 'undefined') {
+			lucide.createIcons();
+		}
 	} catch (error) {
 		console.error(`Fehler beim Navigieren zu ${pageKey}:`, error);
-		mainContent.innerHTML = `<p>Seite '${pageKey}' konnte nicht geladen werden.</p>`;
-        mainContent.classList.remove('page-fade-out', 'page-fade-in');
+		if(mainContent) mainContent.innerHTML = `<p>Seite '${pageKey}' konnte nicht geladen werden.</p>`;
 		lastNavigatedPage = null; // Navigation zurücksetzen
 	}
 }
@@ -214,7 +169,6 @@ function updateHeader(title, icon) {
 
 	if (headerTitle) headerTitle.textContent = title;
   
-	// Ersetzt das Icon dynamisch mit lucide
 	if (headerIcon && typeof lucide !== 'undefined') {
 		headerIcon.setAttribute('data-lucide', icon);
 		lucide.createIcons({
@@ -227,37 +181,14 @@ function updateHeader(title, icon) {
  * Aktualisiert den "active"-Status in der Bottom-Navigationsleiste.
  */
 function updateNavState(pageId) {
-    // Definiert, welche Haupt-Buttons 'aktiv' sein sollen,
-    // auch wenn man sich in einer Unterseite befindet.
-    const activeStates = {
-        'menu': 'menu',
-        'settings': 'menu',
-        'challenges': 'menu',
-        'finanzen': 'menu',
-        'chronik': 'menu', // Chronik dem Menü zuordnen
-        'feed': 'feed',
-        'chat': 'chat',
-        'calendar': 'calendar',
-        'pinnwand': 'pinnwand',
-        'wishlist': 'wishlist'
-    };
-    const activePage = activeStates[pageId] || 'feed';
-
 	const navItems = document.querySelectorAll('#bottom-nav .nav-item');
+  
 	navItems.forEach(item => {
-		if (item.dataset.page === activePage) {
-			item.classList.add('active');
-		} else {
-			item.classList.remove('active');
-		}
+		item.classList.toggle('active', item.dataset.page === pageId);
 	});
 
 	const desktopNavItems = document.querySelectorAll('.nav-item-desktop');
 	desktopNavItems.forEach(item => {
-		if (item.dataset.page === activePage) {
-			item.classList.add('active');
-		} else {
-			item.classList.remove('active');
-		}
+		item.classList.toggle('active', item.dataset.page === pageId);
 	});
 }

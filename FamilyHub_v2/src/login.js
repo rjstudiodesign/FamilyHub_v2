@@ -6,10 +6,10 @@ import { showNotification, showButtonSpinner, hideButtonSpinner } from './ui.js'
 /**
  * Initialisiert die Login-Seite (wird von navigation.js aufgerufen)
  */
-export function renderLogin(listeners) {
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    const toggles = document.querySelectorAll('[data-auth-toggle]');
+export function renderLogin(pageListeners, container) {
+    const loginForm = container.querySelector('#login-form');
+    const registerForm = container.querySelector('#register-form');
+    const toggles = container.querySelectorAll('[data-auth-toggle]');
 
     if (!loginForm || !registerForm) {
         console.error("Login-Template nicht korrekt geladen.");

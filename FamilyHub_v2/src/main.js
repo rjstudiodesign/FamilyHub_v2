@@ -1,63 +1,57 @@
 // src/main.js
-// ECHTER EINSTIEGSPUNKT (ohne Simulation)
-// Core Module-Imports (für Seiteneffekte)
-import './feed.js';
-import './calendar.js';
-import './gallery.js';
-import './navigation.js';
-import './settings.js';
-import './chat.js';
-import './challenges.js';
-import './ui.js';
-import './pinnwand.js';
-import './wishlist.js';
-import './finanzen.js';
-import './chronik.js';
-import './login.js';
+// Bereinigte Version (setzt voraus, dass Login auf login.html passiert)
 
-// ECHTE AUTH-IMPORTE
-import { auth, onAuthStateChanged } from './firebase.js';
-import { initAuthSession, clearAuthSession } from './auth.js';
 import { navigateTo } from './navigation.js';
+import { initAuth, signOutUser } from './auth.js';
+// Wir brauchen hier keine 'signIn'-Funktion mehr, das macht login.html
 
-// Globale MapsTo-Funktion
-window.MapsTo = window.MapsTo || function(page) {
-    navigateTo(page);
-};
+// Globale UI-Elemente
+const appShell = document.getElementById('app-shell');
+const appLoader = document.getElementById('app-loader');
 
 // Globaler Klick-Listener für Navigation
 document.addEventListener('click', (e) => {
-    // Wir suchen nach dem nächstgelegenen Element mit `data-page`, egal ob Link oder Button.
     const target = e.target.closest('[data-page]');
     if (target) {
-        e.preventDefault(); // Verhindert das Standardverhalten (z.B. Navigation zu '#')
+        e.preventDefault();
         const page = target.getAttribute('data-page');
         if (page) {
-            window.MapsTo(page);
+            navigateTo(page);
         }
     }
 });
 
-/**
- * STARTPUNKT DER APP
- *
- * Prüft den Auth-Status und leitet den Benutzer weiter.
- */
-onAuthStateChanged(auth, (user) => {
+// --- ECHTER AUTH-STARTPROZESS ---
+
+// Starte die Authentifizierung. Die initAuth-Funktion meldet sich
+// mit dem Ergebnis (Benutzer-Objekt oder null).
+initAuth((user) => {
     if (user) {
-        // Benutzer ist angemeldet
-        console.log("Auth-Status: Angemeldet", user.uid);
-        // Lade alle Benutzer- und Familiendaten
-        initAuthSession(user, () => {
-            // Nach erfolgreichem Laden der Daten -> zum Feed
-            navigateTo('feed');
-        });
+        // ANGEMELDET
+        appShell.classList.remove('hidden'); // Zeige die Haupt-App
+        appLoader.classList.add('hidden');   // Verstecke den Lade-Spinner
+        navigateTo('feed'); // Navigiere zum Feed als Startseite
     } else {
-        // Benutzer ist abgemeldet
-        console.log("Auth-Status: Abgemeldet");
-        // Bereinige alle alten Sitzungsdaten
-        clearAuthSession();
-        // Leite zur Login-Seite
-        navigateTo('login');
+        // ABGEMELDET
+        // Da wir uns auf index.html befinden und keinen Benutzer haben,
+        // leiten wir den Browser sofort zur separaten login.html um.
+        
+        // Verstecke die App-Teile, um ein "Aufblitzen" zu verhindern
+        appShell.classList.add('hidden');
+        appLoader.classList.add('hidden');
+        
+        // Führe die Umleitung zur Login-Seite durch
+        // (Wir nehmen an, login.html liegt im selben /src/ Ordner wie index.html)
+        window.location.href = 'login.html'; 
     }
 });
+
+
+// (Optional) Logout global verfügbar machen, z.B. für einen Einstellungs-Button
+// Diese Funktion ist nützlich für einen "Logout"-Button IN DER APP.
+window.handleLogout = async () => {
+    console.log("Logout wird ausgeführt...");
+    await signOutUser();
+    // Der onAuthStateChanged-Listener in initAuth() wird dies automatisch
+    // erkennen und zur login.html weiterleiten.
+}

@@ -1,7 +1,11 @@
 // feed.js – Hauptlogik für den Feed
 
-import { db, auth, onSnapshot, collection, query, orderBy, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, addDoc, getDocs, where } from './firebase.js';
-import { showNotification } from './ui.js';
+import { 
+    db, auth, onSnapshot, collection, query, orderBy, doc, updateDoc, 
+    arrayUnion, arrayRemove, serverTimestamp, addDoc, getDocs, where, 
+    getDoc, increment 
+} from './firebase.js';
+import { showNotification, showButtonSpinner, hideButtonSpinner } from './ui.js'; // Spinner importiert
 import { render, append } from './components/index.js';
 import {
     PostCard, EmptyStateCard, SkeletonCard, Card, InfoCard
@@ -19,6 +23,105 @@ import { getCurrentUser } from './auth.js';
 // --- Globale Variablen ---
 let unsubscribePosts = null;
 
+// --- "Beitrag erstellen"-Modal (Platzhalter) ---
+function openCreatePostModal() {
+    console.log("Öffne 'Neuer Beitrag'-Modal...");
+    
+    // Platzhalter-HTML für das Modal
+    const modalHTML = `
+        <div class="modal show" id="create-post-modal" style="display: flex;">
+            <div class="modal-dialog-wrapper">
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <h3>Neuer Beitrag</h3>
+                        <button data-action="close-modal-button" class="btn-icon-ghost">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-sm text-secondary mb-2">Hier kommt das Formular zum Erstellen eines Beitrags hin.</p>
+                        <textarea id="create-post-textarea" class="form-input" placeholder="Was gibt's Neues?" rows="4"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" data-action="close-modal-button">Abbrechen</button>
+                        <button id="save-post-button" class="btn-primary">
+                            <span class="btn-text">Posten</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modalContainer = document.getElementById('modal-container');
+    if (modalContainer) {
+        render(modalHTML, modalContainer);
+        
+        const modal = modalContainer.querySelector('#create-post-modal');
+        const closeButtons = modal.querySelectorAll('[data-action="close-modal-button"]');
+        const saveButton = modal.querySelector('#save-post-button');
+
+        // Schließ-Logik
+        const closeModal = () => {
+            modal.remove();
+        };
+        closeButtons.forEach(btn => btn.addEventListener('click', closeModal));
+        
+        // --- NEU: Speicher-Logik an "Posten"-Button binden ---
+        saveButton.addEventListener('click', async () => {
+            const textarea = modal.querySelector('#create-post-textarea');
+            const text = textarea.value.trim();
+            
+            if (!text) {
+                showNotification("Bitte gib einen Text ein.", "error");
+                return;
+            }
+            
+            showButtonSpinner(saveButton);
+            
+            try {
+                // Rufe die neue Speicherfunktion auf
+                await savePost(text);
+                showNotification("Beitrag erfolgreich erstellt!", "success");
+                closeModal(); // Modal nach Erfolg schließen
+            } catch (error) {
+                console.error("Fehler beim Speichern des Beitrags:", error);
+                showNotification("Fehler beim Speichern des Beitrags.", "error");
+                hideButtonSpinner(saveButton);
+            }
+        });
+        
+    } else {
+         showNotification("Modal-Container nicht gefunden.", "error");
+    }
+}
+
+/**
+ * --- NEU: Speichert einen neuen Text-Beitrag in Firestore ---
+ */
+async function savePost(text) {
+    const { currentFamilyId, currentUser, currentUserData } = getCurrentUser();
+    if (!currentFamilyId || !currentUser) {
+        throw new Error("Benutzer ist nicht oder nicht korrekt angemeldet.");
+    }
+
+    const postsRef = collection(db, 'families', currentFamilyId, 'posts');
+    
+    // Neues Post-Objekt erstellen
+    const newPost = {
+        type: 'default', // Standard-Text-Beitrag
+        text: text,
+        authorId: currentUser.uid,
+        authorName: currentUserData.name || 'Benutzer',
+        authorAvatar: currentUserData.avatarUrl || '', // Annahme, dass Sie avatarUrl im Profil haben
+        createdAt: serverTimestamp(),
+        likes: [],
+        commentsCount: 0
+    };
+    
+    // Dokument zur 'posts'-Sammlung hinzufügen
+    await addDoc(postsRef, newPost);
+}
+
+
 // --- Haupt-Rendering-Funktion ---
 export function renderFeed(pageListeners) {
     const feedContainer = document.getElementById('feed-posts-container');
@@ -27,17 +130,32 @@ export function renderFeed(pageListeners) {
         return;
     }
 
-    const familyId = localStorage.getItem('familyId');
-    if (!familyId) {
+    const { currentFamilyId } = getCurrentUser(); 
+    if (!currentFamilyId) {
         feedContainer.innerHTML = '<p>Keine Familie ausgewählt. Bitte gehe zu den Einstellungen.</p>';
         return;
+    }
+    
+    // --- Event-Listener für FAB (Create Post) ---
+    try {
+        const createPostButton = document.getElementById('fab-create-post');
+        if (createPostButton) {
+            if (!createPostButton.dataset.listenerAttached) {
+                createPostButton.addEventListener('click', openCreatePostModal);
+                createPostButton.dataset.listenerAttached = 'true';
+            }
+        } else {
+            console.warn("Konnte den 'Neuer Beitrag'-Button (fab-create-post) nicht finden.");
+        }
+    } catch (e) {
+        console.error("Fehler beim Binden des createPost-Buttons:", e);
     }
     
     // Initialen Ladezustand anzeigen
     feedContainer.innerHTML = SkeletonCard();
 
     // Listener für Posts
-    const postsRef = collection(db, 'families', familyId, 'posts');
+    const postsRef = collection(db, 'families', currentFamilyId, 'posts');
     const q = query(postsRef, orderBy('createdAt', 'desc'));
     
     if (pageListeners.posts) pageListeners.posts(); // Alten Listener bereinigen
@@ -50,6 +168,11 @@ export function renderFeed(pageListeners) {
             isInitialLoad = false;
             return;
         }
+        
+        if (isInitialLoad) {
+             const skeleton = feedContainer.querySelector('.skeleton-card');
+             if (skeleton) skeleton.parentElement.innerHTML = '';
+        }
 
         snapshot.docChanges().forEach(change => {
             const post = { id: change.doc.id, ...change.doc.data() };
@@ -57,20 +180,12 @@ export function renderFeed(pageListeners) {
             const existingElement = document.getElementById(postElementId);
 
             if (change.type === "added") {
-                if (isInitialLoad) {
-                    // Beim ersten Laden den Skeleton-Loader entfernen
-                    const skeleton = feedContainer.querySelector('#feed-skeleton');
-                    if (skeleton) skeleton.remove();
-                }
                 const newPostElement = createPostElement(post);
                 if (newPostElement) {
-                    // Da die Abfrage absteigend sortiert ist, fügen wir neue Elemente oben ein.
-                    // Bei der initialen Befüllung kommen die Dokumente in der richtigen Reihenfolge.
-                    // Wir verwenden append, um die Reihenfolge beizubehalten. Für neue einzelne Dokumente wäre prepend besser.
-                    // Für die Konsistenz hier: append für den initialen Load, prepend für spätere Adds.
                     if (isInitialLoad) {
                         feedContainer.appendChild(newPostElement);
                     } else {
+                        // Neue Posts (nach dem ersten Laden) oben anzeigen
                         feedContainer.prepend(newPostElement);
                     }
                 }
@@ -92,12 +207,10 @@ export function renderFeed(pageListeners) {
         
         isInitialLoad = false;
 
-        // Überprüfen, ob der Container nach allen Änderungen leer ist
-        if (!feedContainer.hasChildNodes()) {
+        if (feedContainer.childElementCount === 0) {
              feedContainer.innerHTML = EmptyStateCard('Noch keine Beiträge', 'Erstelle den ersten Beitrag im Feed!');
         }
 
-        // Lucide-Icons nach dem Rendern initialisieren
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -107,7 +220,7 @@ export function renderFeed(pageListeners) {
 // --- Post-Element-Erstellung ---
 function createPostElement(post) {
     const div = document.createElement('div');
-    div.id = `post-${post.id}`; // Eindeutige ID für das Element
+    div.id = `post-${post.id}`;
     
     // Wähle die richtige Karte basierend auf dem Post-Typ
     switch (post.type) {
@@ -135,14 +248,40 @@ function createPostElement(post) {
         case 'forecast':
             div.innerHTML = Forecast.Card(post);
             break;
-        default:
-            div.innerHTML = Card(post);
+        default: // 'default' oder unbekannter Typ
+            // ============ KORREKTUR HIER ============
+            // PostCard erwartet ein Objekt mit bestimmten Eigenschaften.
+            // Wir erstellen dieses Objekt aus dem `post`-Datensatz.
+            const cardData = {
+                post: post, // Für die interne Logik in PostCard
+                postId: post.id,
+                authorName: post.authorName,
+                authorAvatar: post.authorAvatar,
+                timestamp: post.createdAt ? new Date(post.createdAt.seconds * 1000).toLocaleString() : 'eben gerade',
+                content: post.text,
+                // Aktionen müssen hier definiert werden, wenn sie für Standard-Posts gelten sollen
+                actions: [
+                    // Beispiel für Like- und Kommentar-Aktionen
+                    {
+                        icon: '<i data-lucide="heart" class="w-5 h-5"></i>',
+                        count: post.likes?.length || 0,
+                        onClick: `window.toggleLike('${post.id}')`,
+                        className: 'like-button',
+                        active: post.likes?.includes(getCurrentUser().currentUser?.uid)
+                    },
+                    {
+                        icon: '<i data-lucide="message-circle" class="w-5 h-5"></i>',
+                        count: post.commentsCount || 0,
+                        onClick: `window.openComments('${post.id}')`,
+                        className: 'comment-button'
+                    }
+                ]
+            };
+            div.innerHTML = PostCard(cardData);
+            // ======================================
     }
     
-    // Event-Listener für das erstellte Element hinzufügen
     addEventListeners(div, post);
-    
-    // Das Element selbst zurückgeben, nicht nur seinen Inhalt
     return div;
 }
 
@@ -206,13 +345,11 @@ async function voteOnPoll(postId, option) {
         const postData = postDoc.data();
         const userVotePath = `votes.${currentUser.uid}`;
 
-        // Prüfen, ob der Benutzer bereits abgestimmt hat
         if (postData.votes && postData.votes[currentUser.uid]) {
             showNotification("Du hast bereits abgestimmt.", "info");
             return;
         }
 
-        // Update-Objekt erstellen
         const updateData = {
             [userVotePath]: option,
             [`options.${option}`]: increment(1)
@@ -224,9 +361,10 @@ async function voteOnPoll(postId, option) {
 }
 
 // --- Kommentar-Logik ---
+// (Stellen Sie sicher, dass template-comments-modal in Index.html existiert)
 if (!window.openComments) {
     window.openComments = async (postId) => {
-        const { currentUser, currentUserData, currentFamilyId } = getCurrentUser(); // Lade Benutzerdaten
+        const { currentUser, currentUserData, currentFamilyId } = getCurrentUser();
         if (!currentFamilyId) return;
         
         const template = document.getElementById('template-comments-modal');
@@ -237,16 +375,14 @@ if (!window.openComments) {
         }
         
         const modalContainer = document.getElementById('modal-container');
-        render(template.innerHTML, modalContainer); // Nutzt render() aus components/index.js
+        render(template.innerHTML, modalContainer);
         
-        // Finde das Modal (angenommen, es hat die Klasse .modal-dialog-wrapper oder .modal-card)
         const modalWrapper = modalContainer.querySelector('.modal-dialog-wrapper');
         const modalCard = modalContainer.querySelector('.modal-card');
         const modalElement = modalWrapper ? modalWrapper.parentElement : modalContainer.querySelector('.modal');
         
-        // Schließen-Logik (KORREKTUR: Nutzt ui.js-Logik nicht voll, da es kein openModal() ist. Manuelle Handhabung)
         const closeLogic = () => {
-             modalElement?.classList.add('page-fade-out'); // Annahme einer Fade-Out-Klasse
+             modalElement?.classList.add('page-fade-out');
              setTimeout(() => modalContainer.innerHTML = '', 300);
         };
         
@@ -255,23 +391,25 @@ if (!window.openComments) {
         });
         modalContainer.querySelector('button[data-action="close-modal-button"]')?.addEventListener('click', closeLogic);
 
-        // --- VEREDELUNG: Avatar des Benutzers im Formular setzen ---
         const avatarImg = modalContainer.querySelector('#comment-user-avatar');
-        if (avatarImg) {
+        if (avatarImg && currentUserData) {
             avatarImg.src = currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUserData.name || 'U')}`;
             avatarImg.alt = currentUserData.name || 'Benutzer';
+        } else if (avatarImg) {
+            avatarImg.src = `https://ui-avatars.com/api/?name=U`;
+            avatarImg.alt = 'Benutzer';
         }
-        // --- ENDE VEREDELUNG ---
-
-        const commentForm = modalContainer.querySelector('#comment-form');
-        commentForm.dataset.postId = postId;
-
-        loadComments(postId); // (Diese Funktion existiert bereits in feed.js)
         
-        commentForm.onsubmit = async (e) => {
-            e.preventDefault();
-            await addComment(e.currentTarget.dataset.postId); // (Diese Funktion existiert bereits in feed.js)
-        };
+        const commentForm = modalContainer.querySelector('#comment-form');
+        if(commentForm) {
+            commentForm.dataset.postId = postId;
+            commentForm.onsubmit = async (e) => {
+                e.preventDefault();
+                await addComment(e.currentTarget.dataset.postId);
+            };
+        }
+
+        loadComments(postId);
         
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
@@ -291,12 +429,11 @@ async function addComment(postId) {
         await addDoc(commentsRef, {
             text: text,
             authorId: currentUser.uid,
-            authorName: currentUserData.name,
+            authorName: currentUserData ? currentUserData.name : 'Anonym',
             authorAvatar: currentUser.photoURL,
             createdAt: serverTimestamp()
         });
         commentInput.value = '';
-        // Lade Kommentare neu, um den neuen anzuzeigen
         loadComments(postId);
     }
 }
@@ -306,6 +443,8 @@ async function loadComments(postId) {
     if (!currentFamilyId) return;
 
     const commentsContainer = document.getElementById('comments-list');
+    if (!commentsContainer) return;
+    
     commentsContainer.innerHTML = '<p>Lade Kommentare...</p>';
 
     const commentsRef = collection(db, 'families', currentFamilyId, 'posts', postId, 'comments');
@@ -320,11 +459,12 @@ async function loadComments(postId) {
             const comment = doc.data();
             const commentElement = document.createElement('div');
             commentElement.className = 'comment-item flex items-start space-x-3 mb-4';
+            const authorName = comment.authorName || 'Anonym';
             commentElement.innerHTML = `
-                <img src="${comment.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.authorName)}`}" alt="${comment.authorName}" class="w-8 h-8 rounded-full">
+                <img src="${comment.authorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}`}" alt="${authorName}" class="w-8 h-8 rounded-full">
                 <div class="flex-1">
                     <div class="bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2">
-                        <p class="font-semibold text-sm text-text-main">${comment.authorName}</p>
+                        <p class="font-semibold text-sm text-text-main">${authorName}</p>
                         <p class="text-sm text-text-secondary">${comment.text}</p>
                     </div>
                     <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">${comment.createdAt ? new Date(comment.createdAt.seconds * 1000).toLocaleString() : ''}</span>

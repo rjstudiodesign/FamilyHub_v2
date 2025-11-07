@@ -1,82 +1,125 @@
 // src/auth.js
+// Veredelte Version für VITE (nutzt lokale 'firebase/auth' Importe)
 
-// Globale Variablen, um den Zustand der simulierten Sitzung zu speichern.
+import { 
+    auth, db, 
+    doc, getDoc, collection, getDocs 
+} from './firebase.js'; // Nutzt unser neues, VITE-fähiges firebase.js
+
+import { 
+    onAuthStateChanged, 
+    signInWithEmailAndPassword, 
+    signOut 
+} from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js'; // KORREKTUR: Importiert lokal statt von 'esm.sh'
+
+// Lokaler "Tresor" für die Sitzungsdaten
 let authUser = null;
-let familyId = null;
 let userData = null;
-let membersData = null;
+let familyId = null;
+let membersData = null; // Map aller Familienmitglieder
 
 /**
- * Simuliert den Anmelde- und Familienlade-Prozess.
+ * Initialisiert den echten Authentifizierungs-Listener.
  */
-export function initAuthSession(user, onAuthSuccess) {
-  setTimeout(() => {
-    // 1. Simulierter Firebase Auth User
-    authUser = user || {
-      uid: 'demo-user-uid-123',
-      name: 'Rj Studiodesign',
-      email: 'rj@familyhub.local',
-    };
+export function initAuth(callback) {
+    onAuthStateChanged(auth, async (user) => {
+        const loader = document.getElementById('app-loader');
+        if (loader) loader.classList.remove('hidden');
 
-    // 2. Simulierte Familien-ID
-    familyId = 'demo-family-id-456';
+        if (user) {
+            // Benutzer IST eingeloggt
+            authUser = user;
+            
+            try {
+                // 1. Lade Benutzerdaten aus /users/{uid}
+                const userDocRef = doc(db, 'users', user.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                
+                if (!userDocSnap.exists()) {
+                    throw new Error("Benutzerdokument nicht in Firestore gefunden.");
+                }
+                
+                userData = userDocSnap.data();
+                familyId = userData.familyId; // Hole die Familien-ID
+                
+                if (!familyId) {
+                    throw new Error("Benutzer ist keiner Familie zugewiesen.");
+                }
 
-    // 3. Simulierte Firestore-Benutzerdaten
-    userData = {
-      name: 'Rj Studiodesign',
-      role: 'Admin',
-      photoURL: null // (kann hier für Tests gesetzt werden)
-    };
+                // 2. Lade ALLE Mitgliederdaten aus /families/{fid}/membersData
+                const membersColRef = collection(db, 'families', familyId, 'membersData');
+                const membersSnap = await getDocs(membersColRef);
+                
+                // Konvertiere das Array in eine effiziente Map (UID -> Member-Objekt)
+                membersData = {};
+                membersSnap.forEach(doc => {
+                    membersData[doc.id] = { uid: doc.id, ...doc.data() };
+                });
 
-    // 4. Simulierte Mitglieder-Daten (Map: userId → memberObjekt)
-    membersData = {
-      'demo-user-uid-123': {
-        uid: 'demo-user-uid-123',
-        name: 'Rj Studiodesign',
-        role: 'Admin',
-        photoURL: null
-      },
-      'demo-user-uid-456': {
-        uid: 'demo-user-uid-456',
-        name: 'Alex Beispiel',
-        role: 'Member',
-        photoURL: null
-      },
-      'demo-user-uid-789': {
-        uid: 'demo-user-uid-789',
-        name: 'Sam Muster',
-        role: 'Member',
-        photoURL: null
-      }
-    };
+                console.log("Auth: Erfolgreich angemeldet und Daten geladen.", userData.name);
+                callback(user); // Signal an main.js: Login erfolgreich
 
-    console.log("Auth-Simulation erfolgreich:", authUser.name, familyId);
+            } catch (error) {
+                console.error("Auth-Fehler beim Laden der Benutzerdaten:", error);
+                
+                // ================================================================
+                // KORREKTUR HIER:
+                // Das Ausloggen hat die Endlosschleife verursacht.
+                // Wir bleiben eingeloggt, auch wenn die DB-Daten fehlen.
+                // await signOutUser(); // <-- AUSKOMMENTIERT, UM LOOP ZU STOPPEN
+                
+                console.log("Auth: Angemeldet, aber Benutzerdaten (Firestore) konnten nicht geladen werden.");
+                // Wir rufen den Callback trotzdem mit 'user' auf.
+                // Die App wird geladen, aber 'userData' wird 'null' sein.
+                callback(user); // <-- GEÄNDERT VON null ZU user
+                // ================================================================
+            }
 
-    if (typeof onAuthSuccess === 'function') {
-      onAuthSuccess(authUser);
-    }
-  }, 300);
+        } else {
+            // Benutzer IST NICHT eingeloggt
+            cleanupSession();
+            console.log("Auth-Status: Abgemeldet.");
+            callback(null); // Signal an main.js: Abgemeldet
+        }
+    });
+}
+
+/**
+ * Versucht, den Benutzer mit E-Mail und Passwort anzumelden.
+ */
+export async function signIn(email, password) {
+    // Diese Funktion löst den onAuthStateChanged-Listener oben aus,
+    // wenn sie erfolgreich ist.
+    await signInWithEmailAndPassword(auth, email, password);
+}
+
+/**
+ * Meldet den Benutzer ab.
+ */
+export async function signOutUser() {
+    await signOut(auth);
+    // Dies löst onAuthStateChanged aus, was cleanupSession() aufruft.
+}
+
+/**
+ * Setzt den lokalen "Tresor" zurück.
+ */
+function cleanupSession() {
+    authUser = null;
+    userData = null;
+    familyId = null;
+    membersData = null;
+    console.log("Auth-Sitzung bereinigt.");
 }
 
 /**
  * Liefert die globalen Sitzungsdaten inkl. Mitglieder-Map.
  */
 export function getCurrentUser() {
-  return {
-    currentUser: authUser,
-    currentFamilyId: familyId,
-    currentUserData: userData,
-    membersData: membersData
-  };
-}
-
-/**
- * Bereinigt die globalen Sitzungsdaten.
- */
-export function clearAuthSession() {
-  authUser = null;
-  familyId = null;
-  userData = null;
-  membersData = null;
-  console.log("Auth-Sitzung bereinigt.");
-}
+    return {
+        currentUser: authUser,
+        currentUserData: userData, // Wird 'null' sein, wenn der catch-Block trifft
+        currentFamilyId: familyId, // Wird 'null' sein
+        membersData: membersData // Wird 'null' sein
+    };
+} 

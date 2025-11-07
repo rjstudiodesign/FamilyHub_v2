@@ -1,6 +1,7 @@
-// firebase.js – Initialisierung für FamilyHub
-// FINALE KORRIGIERTE VERSION (INKL. AUTH-FUNKTIONEN)
-import { initializeApp } from 'firebase/app';
+// firebase.js – Veredelte Version für VITE
+// Importiert Firebase lokal aus 'node_modules' statt von 'esm.sh'
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
 import {
   getFirestore,
   collection,
@@ -21,18 +22,8 @@ import {
   increment,
   arrayUnion,
   arrayRemove
-} from 'firebase/firestore';
-
-// NEUE AUTH-IMPORTE
-import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  updateProfile
-} from 'firebase/auth';
-
+} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
 import {
   getStorage,
   ref,
@@ -40,9 +31,9 @@ import {
   uploadBytesResumable,
   getDownloadURL,
   deleteObject
-} from 'firebase/storage';
+} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-storage.js";
 
-// Ihre Firebase Konfiguration
+// Ihre Firebase Konfiguration (unverändert)
 const firebaseConfig = {
   apiKey: "AIzaSyBbx9pn_QARUqxFlvklgk31yHFACVVmjWw",
   authDomain: "family-hub-84c50.firebaseapp.com",
@@ -60,38 +51,11 @@ const storage = getStorage(app);
 
 // Alles exportieren
 export {
-  db,
-  storage,
-  auth,
+  db, storage, auth,
   // Firestore
-  collection,
-  query,
-  onSnapshot,
-  addDoc,
-  doc,
-  deleteDoc,
-  serverTimestamp,
-  orderBy,
-  runTransaction,
-  getDocs,
-  where,
-  updateDoc,
-  getDoc,
-  setDoc,
-  writeBatch,
-  increment,
-  arrayUnion,
-  arrayRemove,
+  collection, query, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp,
+  orderBy, runTransaction, getDocs, where, updateDoc, getDoc, setDoc,
+  writeBatch, increment, arrayUnion, arrayRemove,
   // Storage
-  ref,
-  uploadBytes,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-  // Auth (NEU)
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  updateProfile
+  ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject
 };

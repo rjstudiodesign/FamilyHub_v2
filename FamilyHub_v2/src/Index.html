@@ -5,14 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>FamilyHub</title>
   
-  <link rel="stylesheet" href="output.css">
-  
+<link rel="stylesheet" href="../output.css">
+
   <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- ==== NEU: "Dynamische" Animation ==== -->
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+  </style>
 </head>
 <body class="bg-primary-bg text-text-main">
 
-  <div id="app-shell" class="min-h-screen pb-20 lg:pb-0 lg:grid lg:grid-cols-[280px_1fr]">
+  <div id="app-loader" class="fixed inset-0 flex items-center justify-center bg-primary-bg z-50">
+    <div class="spinner"></div>
+  </div>
 
+  <div id="app-shell" class="hidden min-h-screen pb-20 lg:pb-0 lg:grid lg:grid-cols-[280px_1fr]">
+
+    <!-- ... Deine Sidebar (unverändert) ... -->
     <aside class="hidden lg:block bg-primary-bg border-r border-border-glass p-6">
       <div class="mb-8">
         <h1 class="text-2xl font-bold text-gradient">FamilyHub</h1>
@@ -43,6 +59,7 @@
       </nav>
     </aside>
 
+    <!-- ... Dein Hauptbereich (unverändert) ... -->
     <div class="lg:flex lg:flex-col lg:h-screen">
       <header class="sticky top-0 z-30 lg:z-auto lg:static glass-premium lg:glass-none lg:bg-transparent border-b border-border-glass lg:border-none p-4 flex items-center gap-3 lg:hidden">
         <i id="header-icon" data-lucide="home" class="w-6 h-6 text-accent-glow"></i>
@@ -53,6 +70,7 @@
         </main>
     </div>
 
+    <!-- ... Deine Mobile-Navigation (unverändert) ... -->
     <nav id="bottom-nav" class="lg:hidden flex justify-around">
       <button class="nav-item active" data-page="feed">
         <i data-lucide="home"></i> <span>Feed</span>
@@ -71,24 +89,29 @@
     </nav>
   </div>
   
+  <!-- ==== ÄNDERUNG HIER: "schlankeres" Layout ==== -->
   <template id="template-feed">
-    <div id="gratitude-trigger-container" class="mb-6"></div>
-    
-    <div class="lg:flex lg:gap-6">
-        <div class="lg:flex-1">
-            <div id="feed-posts-container"></div>
-        </div>
-        <aside class="w-full lg:w-72 mt-6 lg:mt-0 flex-shrink-0">
+    <!-- Ein zentrierter Container für den gesamten Feed-Inhalt -->
+    <div class="max-w-2xl mx-auto">
+        <div id="gratitude-trigger-container" class="mb-6"></div>
+        
+        <!-- Die Posts kommen hier rein -->
+        <div id="feed-posts-container" class="mb-6"></div>
+
+        <!-- Die Widgets kommen darunter -->
+        <aside class="w-full">
             <div id="goal-widget-container">
             </div>
         </aside>
     </div>
     
-    <button id="fab-create-post" class="fab-create-post" onclick="window.openCreatePostModal()" title="Neuer Beitrag">
+    <!-- Der FAB bleibt, wo er war -->
+    <button id="fab-create-post" class="fab-create-post" title="Neuer Beitrag">
         <i data-lucide="plus" class="w-7 h-7"></i>
     </button>
-</template>
+  </template>
 
+  <!-- ... Restliche Templates (unverändert) ... -->
   <template id="template-pinnwand">
     <div class="pinnwand-column-container">
       <div class="pinnwand-column" data-status="todo">
@@ -131,7 +154,8 @@
                     <div class="p-4 border-b border-border-glass">
                         <div class="flex justify-between items-center">
                             <h3 class="text-lg font-semibold text-white">Nachrichten</h3>
-                            <button class="btn-icon-ghost" onclick="window.openNewChatModal()">
+                            <!-- HIER WURDE "onclick" ENTFERNT -->
+                            <button id="fab-create-chat" class="btn-icon-ghost">
                                 <i data-lucide="square-plus" class="w-5 h-5"></i>
                             </button>
                         </div>
@@ -152,7 +176,8 @@
 
                     <div id="chat-window-active" class="hidden flex-1 flex-col">
                         <div class="p-4 border-b border-border-glass flex items-center gap-3">
-                            <button class="btn-icon-ghost lg:hidden" onclick="window.closeChatWindow()">
+                            <!-- HIER WURDE "onclick" ENTFERNT -->
+                            <button id="chat-back-button" class="btn-icon-ghost lg:hidden">
                                 <i data-lucide="chevron-left" class="w-5 h-5"></i>
                             </button>
                             <img id="chat-header-avatar" src="" alt="Avatar" class="w-10 h-10 rounded-full">
@@ -186,7 +211,8 @@
             <div id="challenges-container" class="space-y-4">
                 </div>
             
-            <button id="fab-create-challenge" class="fab-create-post" onclick="window.openCreateChallengeModal()" title="Neue Challenge erstellen">
+            <!-- HIER WURDE "onclick" ENTFERNT -->
+            <button id="fab-create-challenge" class="fab-create-post" title="Neue Challenge erstellen">
                 <i data-lucide="plus" class="w-7 h-7"></i>
             </button>
         </template>
@@ -327,7 +353,8 @@
                 <button class="btn-filter active" data-view="month">Monat</button>
             </div>
 
-            <button id="fab-create-event" class="cta-primary-glow w-full md:w-auto" onclick="window.openCreateEventModal()">
+            <!-- HIER WURDE "onclick" ENTFERNT -->
+            <button id="fab-create-event" class="cta-primary-glow w-full md:w-auto">
                 <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Neuer Termin
             </button>
         </div>
@@ -364,10 +391,12 @@
       
       <div id="gallery-skeleton" class="mt-8"></div>
 
-      <button id="gallery-upload-fab" onclick="window.triggerGalleryUpload && window.triggerGalleryUpload()" class="fab-create-post">
+      <!-- HIER WURDE "onclick" ENTFERNT -->
+      <button id="gallery-upload-fab" class="fab-create-post">
         <i data-lucide="plus" class="w-8 h-8"></i>
       </button>
-      <input id="gallery-upload-input" type="file" accept="image/*,video/*" multiple class="hidden" onchange="window.handleGalleryUpload && window.handleGalleryUpload(event)" />
+      <!-- HIER WURDE "onchange" ENTFERNT (sollte auch in JS gebunden werden) -->
+      <input id="gallery-upload-input" type="file" accept="image/*,video/*" multiple class="hidden" />
     </div>
   </template>
   
@@ -380,7 +409,8 @@
   <template id="template-wishlist">
       <div class="flex justify-between items-center mb-6">
           <h2 class="text-xl font-bold text-gradient">Wunschlisten der Familie</h2>
-          <button class="cta-primary-glow" onclick="window.openAddWishModal()">
+          <!-- HIER WURDE "onclick" ENTFERNT -->
+          <button id="fab-create-wish" class="cta-primary-glow">
               <i data-lucide="plus" class="w-5 h-5 mr-2"></i>Neuer Wunsch
           </button>
       </div>
@@ -396,25 +426,26 @@
   
   <template id="template-menu">
     <div class="app-dashboard-grid">
-        <button class="app-dashboard-item" onclick="window.MapsTo('settings')">
+        <!-- HIER WURDEN "onclick"s ENTFERNT -->
+        <button class="app-dashboard-item" data-page="settings">
             <div class="app-dashboard-icon bg-blue-500/20 text-blue-400">
                 <i data-lucide="settings"></i>
             </div>
             <span class="app-dashboard-label">Einstellungen</span>
         </button>
-        <button class="app-dashboard-item" onclick="window.MapsTo('challenges')">
+        <button class="app-dashboard-item" data-page="challenges">
             <div class="app-dashboard-icon bg-yellow-500/20 text-yellow-400">
                 <i data-lucide="award"></i>
             </div>
             <span class="app-dashboard-label">Challenges</span>
         </button>
-        <button class="app-dashboard-item" onclick="window.MapsTo('finanzen')">
+        <button class="app-dashboard-item" data-page="finanzen">
             <div class="app-dashboard-icon bg-green-500/20 text-green-400">
                 <i data-lucide="piggy-bank"></i>
             </div>
             <span class="app-dashboard-label">Finanzen</span>
         </button>
-        <button class="app-dashboard-item" onclick="window.MapsTo('chronik')">
+        <button class="app-dashboard-item" data-page="chronik">
             <div class="app-dashboard-icon bg-purple-500/20 text-purple-400">
                 <i data-lucide="history"></i>
             </div>
@@ -431,8 +462,7 @@
     </template>
   <div id="modal-container"></div>
 
-  <script type="module" src="src/main.js"></script>
-  
+<script type="module" src="main.js"></script>  
   <script>
     lucide.createIcons();
   </script>

@@ -6,24 +6,25 @@ module.exports = {
   ],
   theme: {
     extend: {
-      // HIER SAGEN WIR TAILWIND, DASS DIESE FARBNAMEN EXISTIEREN.
-      // Tailwind wird nun automatisch bg-*, text-*, border-*, 
-      // und hover:bg-* Varianten für sie erstellen.
+      // KORREKTUR:
+      // Diese Namen (z.B. 'primary-bg') werden zu Tailwind-Klassen (z.B. bg-primary-bg).
+      // Sie müssen auf die CSS-Variablen verweisen, die in input.css definiert sind.
       colors: {
-        'primary-bg': 'var(--background-main)',
-        'text-main': 'var(--text-primary)',
+        'primary-bg': 'var(--primary-bg)',
+        'text-main': 'var(--text-main)',
         'text-secondary': 'var(--text-secondary)',
-        'accent-primary-rose': 'var(--accent-primary-rose)',
-        'background-glass': 'var(--background-glass)',
+        'text-tertiary': 'var(--text-tertiary)',
+        'accent-glow': 'var(--accent-glow)', // Korrigiert von 'accent-primary-rose'
+        'glass-bg': 'var(--glass-bg)', // Korrigiert von 'background-glass'
         'border-glass': 'var(--border-glass)',
-        'hover-glass': 'var(--hover-glass)', // <--- DER FEHLENDE SCHLÜSSEL
-      },
-      backgroundImage: {
-         'gradient-primary': 'var(--gradient-primary)',
       },
       boxShadow: {
-        'glow-rose': 'var(--shadow-glow-rose)',
-        'card': 'var(--shadow-card)',
+        'glow': 'var(--shadow-glow)', // Korrigiert von 'glow-rose'
+        'glow-hover': 'var(--shadow-glow-hover)',
+      },
+      borderRadius: {
+        'container': 'var(--radius-container)',
+        'btn': 'var(--radius-btn)',
       }
     },
   },

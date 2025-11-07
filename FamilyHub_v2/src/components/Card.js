@@ -53,17 +53,20 @@
 
           // --- NEU: Erweiterte LOGIK-Integration für Gallery ---
           let body;
-          if (post.type === 'poll') {
-              body = window.PollCard(post);
-          } else if (post.type === 'gratitude') {
-              body = window.GratitudeCard(post);
-          } else if (post.type === 'forecast') {
-              body = window.ForecastCard({ post });
-          } else if (post.type === 'memory') {
-              body = window.MemoryCard({ post });
-          } else if (post.type === 'gallery') {
+          // Der 'post' Parameter ist jetzt das 'data' Objekt selbst, wenn es kein verschachteltes 'post' gibt.
+          const postData = data.post || data;
+
+          if (postData.type === 'poll') {
+              body = window.PollCard(postData);
+          } else if (postData.type === 'gratitude') {
+              body = window.GratitudeCard(postData);
+          } else if (postData.type === 'forecast') {
+              body = window.ForecastCard({ post: postData });
+          } else if (postData.type === 'memory') {
+              body = window.MemoryCard({ post: postData });
+          } else if (postData.type === 'gallery') {
               // 'GalleryPostCard' wird aus 'feed.js' importiert und hier aufgerufen
-              body = window.GalleryPostCard(post);
+              body = window.GalleryPostCard(postData);
           } else {
               // Standard-Post
               body = `
@@ -131,7 +134,27 @@
           return Card(content, { variant: 'premium', padding: 'lg' });
       }
 
-      export function SkeletonCard({ lines = 3, hasImage = false }) {
-          const content = `...`; // (Implementierung wie zuvor)
+      export function SkeletonCard({ lines = 3, hasImage = false } = {}) {
+          const textLines = Array(lines).fill(0).map(() => `
+              <div class="h-4 bg-gray-700 rounded w-full animate-pulse"></div>
+          `).join('');
+
+          const image = hasImage ? `
+              <div class="h-48 bg-gray-700 rounded-lg w-full animate-pulse mb-4"></div>
+          ` : '';
+
+          const content = `
+              <div class="flex items-center gap-3 mb-4">
+                  <div class="w-12 h-12 bg-gray-700 rounded-full animate-pulse"></div>
+                  <div class="flex-1 space-y-2">
+                      <div class="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>
+                      <div class="h-3 bg-gray-700 rounded w-1/2 animate-pulse"></div>
+                  </div>
+              </div>
+              ${image}
+              <div class="space-y-3">
+                  ${textLines}
+              </div>
+          `;
           return `<div class="post-card">${content}</div>`;
       }
