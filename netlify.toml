@@ -1,0 +1,12 @@
+# netlify.toml
+# Diese Datei gibt Netlify Anweisungen für den Build-Prozess.
+
+[build]
+  # Das "Base directory": Der Unterordner, in dem sich dein Projekt befindet.
+  base = "FamilyHub_v2"
+
+  # Der Build-Befehl, der in diesem Unterordner ausgeführt wird.
+  command = "npm run build"
+
+  # Das Verzeichnis (relativ zum "Base directory"), das nach dem Build veröffentlicht wird.
+  publish = "dist"
