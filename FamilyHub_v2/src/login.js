@@ -7,12 +7,14 @@ import { showNotification, showButtonSpinner, hideButtonSpinner } from './ui.js'
  * Initialisiert die Login-Seite (wird von navigation.js aufgerufen)
  */
 export function renderLogin(pageListeners, container) {
-    const loginForm = container.querySelector('#login-form');
-    const registerForm = container.querySelector('#register-form');
-    const toggles = container.querySelectorAll('[data-auth-toggle]');
+    // Wenn kein Container übergeben wird, fallback auf document
+    const searchContext = container || document;
+    const loginForm = searchContext.querySelector('#login-form');
+    const registerForm = searchContext.querySelector('#register-form');
+    const toggles = searchContext.querySelectorAll('[data-auth-toggle]');
 
     if (!loginForm || !registerForm) {
-        console.error("Login-Template nicht korrekt geladen.");
+        console.error("Login- oder Registrierungsformular nicht gefunden!");
         return;
     }
 

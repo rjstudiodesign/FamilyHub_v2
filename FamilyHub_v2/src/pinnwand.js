@@ -292,20 +292,24 @@ async function onDrop(e) {
     await updateDoc(taskRef, { status: newStatus });
 
     // 3. (NEU) Belohnungs-Logik
-    // Wir lösen die Belohnung nur aus, wenn die Karte nach "done" verschoben wurde
-    if (newStatus === 'done') {
-        // Finde die vollständigen Kartendaten aus unserem lokalen State
-        const taskData = columns.flatMap(col => col.cards).find(card => card.id === cardId);
-        if (taskData && taskData.assignedTo && taskData.points > 0) {
-            // Finde das Zieldokument des Mitglieds
-            const memberRef = doc(db, 'families', currentFamilyId, 'membersData', taskData.assignedTo);
-            
-            // Erhöhe die Punkte atomar
-            await updateDoc(memberRef, {
-                points: increment(taskData.points)
-            });
-            // Visuelles Feedback
-            showNotification(`+${taskData.points} Punkte! Gut gemacht!`, "success");
+    if (newStatus === 'done' && draggedFromColumn !== 'done') {
+        
+        // Hole die Task-Daten direkt aus Firestore, statt 'columns' zu nutzen
+        const taskSnapshot = await getDoc(taskRef); 
+        if (taskSnapshot.exists()) {
+            const taskData = taskSnapshot.data();
+
+            if (taskData && taskData.assignedTo && taskData.points > 0) {
+                // Finde das Zieldokument des Mitglieds
+                const memberRef = doc(db, 'families', currentFamilyId, 'membersData', taskData.assignedTo);
+                
+                // Erhöhe die Punkte atomar
+                await updateDoc(memberRef, {
+                    points: increment(taskData.points)
+                });
+                // Visuelles Feedback
+                showNotification(`${taskData.points} Punkte! Gut gemacht!`, "success");
+            }
         }
     }
   } catch (err) {

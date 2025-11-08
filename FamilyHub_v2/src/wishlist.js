@@ -31,15 +31,30 @@ function renderFilteredItems() {
 
 export function renderWishlist(listeners) {
     const { currentFamilyId, membersData, currentUser } = getCurrentUser();
+    
+    if (!currentFamilyId) {
+        console.warn("renderWishlist: keine currentFamilyId verfügbar — wahrscheinlich abgemeldet.");
+        const gridContainer = document.getElementById('wishlist-grid');
+        const emptyContainer = document.getElementById('wishlist-empty-state');
+        if(gridContainer) gridContainer.innerHTML = "";
+        if(emptyContainer) {
+            emptyContainer.innerHTML = EmptyStateCard('Nicht angemeldet', 'Melde dich an, um die Wunschlisten zu sehen.', 'log-in');
+            emptyContainer.classList.remove('hidden');
+        }
+        return;
+    }
+
     const tabsContainer = document.getElementById('wishlist-member-tabs');
     
     // 1. Member-Tabs rendern
     let tabsHTML = `<button class="feed-filter-btn active" onclick="window.filterWishlist(this, 'all')">Alle</button>`;
-    tabsHTML += Object.values(membersData).map(member => 
-        `<button class="feed-filter-btn" data-uid="${member.uid}" onclick="window.filterWishlist(this, '${member.uid}')">
-            ${member.name}
-        </button>`
-    ).join('');
+    if (membersData) {
+        tabsHTML += Object.values(membersData).map(member => 
+            `<button class="feed-filter-btn" data-uid="${member.uid}" onclick="window.filterWishlist(this, '${member.uid}')">
+                ${member.name}
+            </button>`
+        ).join('');
+    }
     tabsContainer.innerHTML = tabsHTML;
     currentWishlistFilter = 'all'; // Reset Filter
 

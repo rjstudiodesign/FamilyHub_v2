@@ -14,8 +14,9 @@ module.exports = {
         'text-main': 'var(--text-main)',
         'text-secondary': 'var(--text-secondary)',
         'text-tertiary': 'var(--text-tertiary)',
-        'accent-glow': 'var(--accent-glow)', // Korrigiert von 'accent-primary-rose'
-        'glass-bg': 'var(--glass-bg)', // Korrigiert von 'background-glass'
+        'accent-glow': 'var(--accent-glow)',
+        'accent-primary-rose': 'var(--accent-primary-rose)', // HINZUGEFÜGT
+        'glass-bg': 'var(--glass-bg)',
         'border-glass': 'var(--border-glass)',
       },
       boxShadow: {

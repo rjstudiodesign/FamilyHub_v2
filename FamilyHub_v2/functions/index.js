@@ -252,11 +252,14 @@ exports.parseWishlistMetadata = functions.firestore
                 title: title.trim(),
                 imageUrl: imageUrl,
                 description: description ? description.trim() : null,
-                scraped: true
+                status: 'success' // NEU
             });
 
         } catch (error) {
             console.error('Error scraping metadata:', error.message);
-            return snap.ref.update({ scraped: false, error: error.message });
+            return snap.ref.update({ 
+                status: 'error', // NEU
+                error: error.message 
+            });
         }
     });

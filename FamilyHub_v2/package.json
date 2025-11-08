@@ -5,9 +5,7 @@
   "main": "src/main.js",
   "scripts": {
     "dev": "vite",
-    "dev:css": "tailwindcss -i ./input.css -o ./output.css --watch",
     "build": "vite build",
-    "build:css": "NODE_ENV=production tailwindcss -i ./input.css -o ./output.css --minify",
     "preview": "vite preview"
   },
   "devDependencies": {

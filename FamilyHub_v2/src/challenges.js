@@ -11,17 +11,27 @@ import { render } from './components/index.js';
  * Initialisiert die 'Challenges'-Seite.
  */
 export function renderChallenges(listeners) {
-    // KORREKTUR: Sicherstellen, dass die Container existieren, BEVOR sie befüllt werden
+    const { currentFamilyId, membersData } = getCurrentUser();
     const leaderboardContainer = document.getElementById('leaderboard-container');
     const challengesContainer = document.getElementById('challenges-container');
 
     if (!leaderboardContainer || !challengesContainer) {
-        // Dieser Fehler tritt auf, wenn `index.html` veraltet ist
         console.error("Challenges-DOM-Struktur nicht gefunden. `index.html` ist veraltet.");
         return; 
     }
     
-    renderLeaderboard();
+    if (!currentFamilyId) {
+        leaderboardContainer.innerHTML = EmptyStateCard('Keine Familien-ID', 'Bitte melde dich an, um das Leaderboard zu sehen.', 'award');
+        challengesContainer.innerHTML = EmptyStateCard('Keine Familien-ID', 'Bitte melde dich an, um Challenges zu sehen.', 'award');
+        return;
+    }
+
+    if (!membersData || Object.keys(membersData).length === 0) {
+        leaderboardContainer.innerHTML = EmptyStateCard('Keine Familien-Daten', 'Bitte melde dich an oder warte, bis Familieninformationen geladen sind.', 'award');
+    } else {
+        renderLeaderboard();
+    }
+    
     renderActiveChallenges(listeners);
 }
 
@@ -31,7 +41,12 @@ export function renderChallenges(listeners) {
 function renderLeaderboard() {
     const { membersData } = getCurrentUser();
     const container = document.getElementById('leaderboard-container');
-    if (!container) return; // Sollte durch die Prüfung oben abgedeckt sein
+    if (!container) return;
+
+    if (!membersData || Object.keys(membersData).length === 0) {
+        container.innerHTML = EmptyStateCard('Keine Familien-Daten', 'Warte, bis die Mitglieder geladen sind.', 'users');
+        return;
+    }
 
     const sortedMembers = Object.values(membersData)
         .sort((a, b) => (b.points || 0) - (a.points || 0));

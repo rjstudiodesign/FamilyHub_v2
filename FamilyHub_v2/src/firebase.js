@@ -1,7 +1,7 @@
-// firebase.js – Veredelte Version für VITE
-// Importiert Firebase lokal aus 'node_modules' statt von 'esm.sh'
+// src/firebase.js
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+// KORREKTUR: Importiere aus den "firebase/..." Paketen, nicht von der CDN
+import { initializeApp } from "firebase/app";
 import {
   getFirestore,
   collection,
@@ -22,8 +22,8 @@ import {
   increment,
   arrayUnion,
   arrayRemove
-} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+} from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import {
   getStorage,
   ref,
@@ -31,7 +31,7 @@ import {
   uploadBytesResumable,
   getDownloadURL,
   deleteObject
-} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-storage.js";
+} from "firebase/storage";
 
 // Ihre Firebase Konfiguration (unverändert)
 const firebaseConfig = {

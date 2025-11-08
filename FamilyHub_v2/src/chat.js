@@ -9,7 +9,7 @@ let currentMessagesUnsubscribe = () => {}; // Initialisiere als leere Funktion
 let currentChatId = null;
 
 // Rendert die Haupt-Chat-Liste
-export function renderChat(listeners) {
+export function renderChat(listeners, params = {}) {
     const { currentUser, currentFamilyId, membersData } = getCurrentUser();
     if (!currentUser) return;
 
@@ -242,13 +242,14 @@ export function renderChat(listeners) {
                 chatName = newChatName;
             }
 
-            // 3. Zur Chat-Seite navigieren und den Chat öffnen
-            navigateTo('chat');
-            
-            // Kurze Verzögerung, damit die Chat-Seite rendern kann, bevor das Fenster geöffnet wird
-            setTimeout(() => {
-                openChatWindow(chatIdToOpen, chatName, chatAvatar);
-            }, 100); // 100ms Puffer
+            // 3. Zur Chat-Seite navigieren und den Chat als Parameter übergeben
+            navigateTo('chat', { 
+                initialChat: {
+                    chatId: chatIdToOpen,
+                    chatName: chatName,
+                    chatAvatar: chatAvatar
+                }
+            });
 
         } catch (error) {
             console.error("Error starting context chat:", error);

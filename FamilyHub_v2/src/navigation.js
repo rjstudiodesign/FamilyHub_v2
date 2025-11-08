@@ -10,12 +10,15 @@ import { renderSettings } from './settings.js';
 import { renderWishlist } from './wishlist.js';
 import { renderChat } from './chat.js';
 import { renderChallenges } from './challenges.js'; // KORRIGIERT: Echter Import
+import { renderFinanzen } from './finanzen.js'; // NEU
+import { renderChronik } from './chronik.js'; // NEU
+import { renderLogin } from './login.js'; // NEU
 
 // --- 2. ZENTRALE ROUTEN-DEFINITION (Single Source of Truth) ---
 const routes = {
-	'login': { // NEU: Die "Eingangshalle" (Login)
+	'login': { 
 		templateId: 'template-login',
-		init: () => {}, // Die Logik ist jetzt in main.js!
+		init: renderLogin, // KORREKTUR: renderLogin muss hier aufgerufen werden
 		title: 'Anmelden',
 		icon: 'log-in'
 	},
@@ -66,12 +69,24 @@ const routes = {
 		init: renderGallery,
 		title: 'Galerie',
 		icon: 'image'
-	}
-	// 'chronik' wurde entfernt, da 'template-chronik' in index.html fehlt
+	},
+	'finanzen': { // NEU
+        templateId: 'template-finanzen',
+        init: renderFinanzen,
+        title: 'Finanzen',
+        icon: 'piggy-bank'
+    },
+    'chronik': { // NEU (und korrigiert)
+        templateId: 'template-chronik',
+        init: renderChronik,
+        title: 'Chronik',
+        icon: 'history'
+    }
 };
 
 let lastNavigatedPage = null;
 const mainContent = document.getElementById('app-content');
+const authContainer = document.getElementById('auth-container'); // NEU
 const pageListeners = {}; // Zentrales Listener-Objekt (unverändert)
 
 /**
@@ -90,7 +105,7 @@ function cleanupListeners() {
 /**
  * Navigiert asynchron zu einer neuen Seite.
  */
-export async function navigateTo(pageId) {
+export async function navigateTo(pageId, params = {}) {
 	// 1. Standardseite definieren
 	// (Wenn 'login' angefordert wird, aber die Route fehlt, gehe zu 'feed' - 
 	// ABER: 'login' ist jetzt definiert!)
@@ -125,28 +140,19 @@ export async function navigateTo(pageId) {
 			throw new Error(`Template-Tag #${route.templateId} nicht gefunden.`);
 		}
 
-		// 7. Inhalt im DOM rendern
-		if(mainContent) {
-			mainContent.innerHTML = template.innerHTML;
-		} else {
-			// Wenn 'app-shell' (und damit 'app-content') ausgeblendet ist (z.B. Login),
-			// müssen wir den Inhalt woanders rendern.
-			// HINWEIS: Unser neues main.js blendet app-shell aus, aber WIR MÜSSEN
-			// das Login-Template *außerhalb* der Shell rendern.
-			
-			// ARCHITEKTUR-ANPASSUNG: main.js blendet 'app-shell' aus,
-			// und 'app-loader' ist auf derselben Ebene.
-			// Das Login-Template muss AUCH auf dieser Ebene sein.
-			// Wir passen das in index.html an.
-			
-			// Fürs Erste: Wenn wir 'login' rendern, muss es *außerhalb* von app-shell sein.
-			// DA WIR index.html saniert haben, ist 'app-content' jetzt korrekt.
-		}
-
+		// 7. Inhalt im richtigen Container rendern
+        const targetContainer = pageKey === 'login' ? authContainer : mainContent;
+        if (targetContainer) {
+		    targetContainer.innerHTML = template.innerHTML;
+        } else {
+            console.error(`Target container for page '${pageKey}' not found.`);
+            return;
+        }
 
 		// 8. Seiten-spezifische Logik aufrufen
 		if (typeof route.init === 'function') {
-			route.init(pageListeners);
+			// WICHTIG: Den Zielcontainer an die init-Funktion übergeben
+			route.init(pageListeners, targetContainer, params); 
 		}
 
 		// 9. Icons für die neue Seite initialisieren

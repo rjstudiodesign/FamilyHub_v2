@@ -35,3 +35,20 @@ function renderGoalItem(goal) {
           </div>
           `;
       }
+
+export function GoalCard(post) {
+    // Diese Funktion rendert einen Post vom Typ 'goal_update'
+    return `
+        <div class="post-card">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-accent-glow/20 rounded-full flex items-center justify-center">
+                    <i data-lucide="flag" class="w-6 h-6 text-accent-glow"></i>
+                </div>
+                <div>
+                    <p class="text-white">${post.text}</p>
+                    <p class="text-xs text-secondary">${new Date(post.createdAt.seconds * 1000).toLocaleString()}</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
