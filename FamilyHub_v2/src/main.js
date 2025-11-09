@@ -1,112 +1,89 @@
-import './style.css'; // Diese Zeile ist neu
+import './style.css';
 
 // src/main.js
 // Veredelte Version (nutzt die SPA-Route 'login')
 
 import { navigateTo } from './navigation.js';
 import { initAuth, signOutUser } from './auth.js';
-import { renderLogin } from './login.js'; // WICHTIG: Importiert die Login-UI-Logik
+import { renderLogin } from './login.js';
+import './welcome.js'; // Für Seiteneffekte importieren
+import { createLogger } from './utils/logger.js';
+
+const logger = createLogger('App');
 
 // Globale UI-Elemente
 const appShell = document.getElementById('app-shell');
 const appLoader = document.getElementById('app-loader');
 const authContainer = document.getElementById('auth-container');
 
-let isAuthReady = false; // NEU: Sperre für die Navigation
+let isAuthReady = false;
+
+// Performance: Debounced Navigation
+let navigationTimeout = null;
+function debouncedNavigate(page) {
+    clearTimeout(navigationTimeout);
+    navigationTimeout = setTimeout(() => navigateTo(page), 100);
+}
 
 // Globaler Klick-Listener für Navigation
 document.addEventListener('click', (e) => {
-    if (!isAuthReady) return; // NEU: Navigation blockieren, bis Auth bereit ist
+    if (!isAuthReady) return;
 
     const target = e.target.closest('[data-page]');
     if (target) {
         e.preventDefault();
         const page = target.getAttribute('data-page');
         if (page) {
-            navigateTo(page);
+            debouncedNavigate(page);
         }
     }
 });
 
 // --- ECHTER AUTH-STARTPROZESS (Veredelt) ---
 
-initAuth(async (session) => { // Async, um auf navigateTo warten zu können
+initAuth(async (session) => {
     appLoader.classList.add('hidden');
 
     if (session && session.authUser) {
         // ANGEMELDET
         authContainer.innerHTML = ''; 
         appShell.classList.remove('hidden'); 
-        await navigateTo('feed'); // Warten, bis die erste Seite geladen ist
+
+        if (session.familyId) {
+            // Benutzer hat eine Familie -> zum Feed
+            logger.info('User has a family, navigating to feed', { familyId: session.familyId });
+            await navigateTo('feed');
+        } else {
+            // Benutzer hat KEINE Familie -> zur Welcome-Seite
+            logger.warn('User has no family, navigating to welcome page');
+            await navigateTo('welcome');
+        }
     } else {
         // ABGEMELDET
+        logger.info('User not authenticated');
         appShell.classList.add('hidden'); 
-        await navigateTo('login'); // Warten, bis die Login-Seite geladen ist
+        await navigateTo('login');
     }
 
-    isAuthReady = true; // ERST JETZT die Navigation für Klicks freigeben
+    isAuthReady = true;
 });
 
-// (Optional) Logout global verfügbar machen
+// Logout global verfügbar machen
 window.handleLogout = async () => {
-    console.log("Logout wird ausgeführt...");
+    logger.info("Logout initiated");
     await signOutUser();
-    // Der onAuthStateChanged-Listener oben wird dies erkennen
-    // und automatisch zu navigateTo('login') wechseln.
 }
 
-// --- TEMPORÄRE FUNKTION ZUM ERSTELLEN DER FAMILIE "JÄGER" ---
-import { db, doc, setDoc, collection, writeBatch, serverTimestamp } from './firebase.js';
-window.createJagerFamily = async () => {
-    const userId = "d4VNKIKw0oNjxV6ic4iIv2jWuEb2";
-    const familyName = "Jäger";
-    const userName = "Benutzer Jäger"; // Annahme, passe dies bei Bedarf an
-    const userEmail = "jaeger@example.com"; // Annahme, passe dies bei Bedarf an
+// Error-Handling für unerwartete Fehler
+window.addEventListener('error', (event) => {
+    logger.error('Uncaught error', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno
+    });
+});
 
-    console.log(`Erstelle Familie '${familyName}' für Benutzer ${userId}...`);
-
-    try {
-        const batch = writeBatch(db);
-
-        // 1. Neue Familie erstellen
-        const familyRef = doc(collection(db, 'families'));
-        const familyId = familyRef.id;
-        batch.set(familyRef, {
-            name: familyName,
-            createdAt: serverTimestamp(),
-            ownerId: userId
-        });
-        console.log(`Familien-Dokument wird mit ID ${familyId} erstellt.`);
-
-        // 2. Benutzer zur membersData dieser Familie hinzufügen
-        const memberRef = doc(db, 'families', familyId, 'membersData', userId);
-        batch.set(memberRef, {
-            uid: userId,
-            name: userName,
-            email: userEmail,
-            role: 'Admin',
-            joinedAt: serverTimestamp(),
-            points: 0,
-            photoURL: null 
-        });
-        console.log(`Mitglieds-Dokument für ${userName} wird in Familie ${familyId} erstellt.`);
-
-        // 3. Das private 'users'-Dokument des Benutzers aktualisieren, um auf die neue Familie zu verweisen
-        const userRef = doc(db, 'users', userId);
-        batch.update(userRef, {
-            familyId: familyId
-        });
-        console.log(`Benutzer-Dokument ${userId} wird aktualisiert, um auf Familie ${familyId} zu verweisen.`);
-
-        // 4. Batch ausführen
-        await batch.commit();
-        
-        console.log("ERFOLG! Familie Jäger wurde erstellt und dem Benutzer zugewiesen.");
-        alert("Familie Jäger wurde erfolgreich erstellt!");
-
-    } catch (error) {
-        console.error("FEHLER beim Erstellen der Familie:", error);
-        alert("Ein Fehler ist aufgetreten. Siehe Konsole für Details.");
-    }
-};
-// --- ENDE TEMPORÄRE FUNKTION ---
+window.addEventListener('unhandledrejection', (event) => {
+    logger.error('Unhandled promise rejection', event.reason);
+});

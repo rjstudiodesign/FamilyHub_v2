@@ -26,6 +26,12 @@ export function renderCalendar(listeners) {
     // UI-Element-Handler (Buttons)
     setupCalendarUI();
 
+    // --- NEU: Event-Listener für den "Erstellen"-Button ---
+    const createEventBtn = document.getElementById('fab-create-event');
+    if (createEventBtn) {
+        createEventBtn.addEventListener('click', () => window.openCreateEventModal());
+    }
+
     // Daten laden
     const { currentFamilyId } = getCurrentUser();
     if (!currentFamilyId) {
@@ -282,8 +288,12 @@ if (!window.openCreateEventModal) {
         
         openModal(Card(modalContent, { variant: 'premium', className: 'max-w-lg w-full' }), modalId);
         if (typeof lucide !== 'undefined') lucide.createIcons();
-    document.getElementById('create-event-form').onsubmit = window.handleEventSubmit;
-}
+        
+        // Korrigierte Zuweisung des Event-Handlers
+        document.getElementById('create-event-form').addEventListener('submit', (e) => {
+            window.handleEventSubmit(e);
+        });
+    }
 }
 
 if (!window.handleEventSubmit) {

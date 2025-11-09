@@ -67,6 +67,17 @@ export function renderGallery(listeners) {
     });
 
     listeners.gallery = galleryUnsubscribe;
+
+    // --- NEU: Event-Listener für die Upload-Buttons ---
+    const uploadFab = document.getElementById('gallery-upload-fab');
+    if (uploadFab) {
+        uploadFab.addEventListener('click', () => window.triggerGalleryUpload());
+    }
+
+    const uploadInput = document.getElementById('gallery-upload-input');
+    if (uploadInput) {
+        uploadInput.addEventListener('change', (event) => window.handleGalleryUpload(event));
+    }
 }
 
 function showGallerySkeleton() {

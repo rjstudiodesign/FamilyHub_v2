@@ -16,13 +16,13 @@
  * =========================================
  */
 :root, html {
-    --primary-bg: #0A0908;
-    --text-main: #F2F4F3;
-    --text-secondary: #9ca3af;
-    --text-tertiary: #6b7280;
-    --accent-glow: #A04668;
-    --glass-bg: rgba(10, 9, 8, 0.75);
-    --border-glass: rgba(242, 244, 243, 0.1);
+    --primary-bg: 10 9 8;
+    --text-main: 242 244 243;
+    --text-secondary: 156 163 175;
+    --text-tertiary: 107 114 128;
+    --accent-glow: 160 70 104;
+    --glass-bg: 10 9 8;
+    --border-glass: 242 244 243;
     --shadow-glow: 0 0 15px rgba(160, 70, 104, 0.4);
     --shadow-glow-hover: 0 0 25px rgba(160, 70, 104, 0.6);
     --radius-container: 16px;
@@ -74,6 +74,9 @@
     .bg-accent-glow\/20 {
         background-color: rgba(160, 70, 104, 0.2);
     }
+    .bg-accent-glow\/30 {
+        background-color: rgba(160, 70, 104, 0.3);
+    }
 }
 
 @layer components {
@@ -112,6 +115,16 @@
     .cta-primary-glow:hover, .cta-primary-glow:focus {
         transform: scale(1.03); 
         box-shadow: var(--shadow-glow-hover); 
+    }
+
+    /* --- NEU: Formular-Komponenten --- */
+    .form-input {
+        @apply w-full bg-white/5 border border-border-glass rounded-lg px-4 py-2;
+        @apply text-text-main placeholder-text-tertiary;
+        @apply transition-all duration-200;
+    }
+    .form-input:focus {
+        @apply bg-white/10 border-accent-glow/50 ring-2 ring-accent-glow/30 outline-none;
     }
 
     /* --- B. Layout-Komponenten --- */
@@ -252,13 +265,13 @@
         position: relative;
     }
     .poll-option:hover {
-        @apply border-primary-rose bg-primary-rose/10;
+        @apply border-rose-500 bg-rose-500/10;
     }
     .poll-option.voted-by-user {
-        @apply border-primary-rose bg-primary-rose/20 ring-2 ring-primary-rose;
+        @apply border-accent-glow bg-accent-glow/20 ring-2 ring-accent-glow;
     }
     .poll-result-bar {
-        @apply absolute top-0 left-0 h-full rounded-md bg-primary-rose/30 transition-all duration-500;
+        @apply absolute top-0 left-0 h-full rounded-md bg-accent-glow/30 transition-all duration-500;
         z-index: -1;
     }
 

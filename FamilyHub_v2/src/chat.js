@@ -67,6 +67,17 @@ export function renderChat(listeners, params = {}) {
         listContainer.innerHTML = "<p class='text-red-500 p-4'>Fehler beim Laden der Chats.</p>";
     });
 
+    // --- NEU: Event-Listener für UI-Buttons ---
+    const createChatBtn = document.getElementById('fab-create-chat');
+    if (createChatBtn) {
+        createChatBtn.addEventListener('click', () => window.openNewChatModal());
+    }
+
+    const backBtn = document.getElementById('chat-back-button');
+    if (backBtn) {
+        backBtn.addEventListener('click', () => window.closeChatWindow());
+    }
+
     // Formular-Handler für das Senden von Nachrichten
     const chatForm = document.getElementById('chat-input-form');
     chatForm.onsubmit = async (e) => {

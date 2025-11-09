@@ -4,6 +4,9 @@
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
+  initializeFirestore,
+  CACHE_SIZE_UNLIMITED,
+  persistentLocalCache,
   collection,
   query,
   onSnapshot,
@@ -21,9 +24,19 @@ import {
   writeBatch,
   increment,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  limit,
+  startAfter
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  updateProfile,
+  signOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail
+} from "firebase/auth";
 import {
   getStorage,
   ref,
@@ -33,19 +46,24 @@ import {
   deleteObject
 } from "firebase/storage";
 
-// Ihre Firebase Konfiguration (unverändert)
+// Firebase Konfiguration aus Environment-Variablen
 const firebaseConfig = {
-  apiKey: "AIzaSyBbx9pn_QARUqxFlvklgk31yHFACVVmjWw",
-  authDomain: "family-hub-84c50.firebaseapp.com",
-  projectId: "family-hub-84c50",
-  storageBucket: "family-hub-84c50.appspot.com",
-  messagingSenderId: "910534679848",
-  appId: "1:910534679848:web:5604a70a93446fbe21041d",
-  measurementId: "G-ESLX6SLENB"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+
+// Neue, zukunftssichere Methode zur Aktivierung der Offline-Persistenz
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ cacheSizeBytes: CACHE_SIZE_UNLIMITED })
+});
+
 const auth = getAuth(app);
 const storage = getStorage(app);
 
@@ -55,7 +73,10 @@ export {
   // Firestore
   collection, query, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp,
   orderBy, runTransaction, getDocs, where, updateDoc, getDoc, setDoc,
-  writeBatch, increment, arrayUnion, arrayRemove,
+  writeBatch, increment, arrayUnion, arrayRemove, limit, startAfter,
   // Storage
-  ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject
+  ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject,
+  // Auth
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
+  signOut, onAuthStateChanged, sendPasswordResetEmail
 };

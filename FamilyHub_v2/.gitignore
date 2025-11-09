@@ -4,9 +4,20 @@
 # Lokale Konfiguration
 .vscode/
 
+# Environment-Variablen (SECURITY)
+.env
+.env.local
+.env.production
+
 # Build-Artefakte
-/output.css 
+/output.css
+/dist
 
 # Betriebssystem-Dateien
 .DS_Store
 Thumbs.db
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
