@@ -92,127 +92,94 @@ function openCreatePostModal() {
 }
 
 
-// --- Haupt-Rendering-Funktion ---
-export function renderFeed(pageListeners) {
-    const { currentFamilyId } = getCurrentUser(); 
-    const feedContainer = document.getElementById('feed-posts-container');
+// --- 4. HAUPT-RENDER-FUNKTION (Wird bei Navigation aufgerufen) ---
+export function renderFeed(listeners) {
+    const { currentFamilyId, currentUser } = getCurrentUser();
+    if (!currentFamilyId || !currentUser) return;
+
+    const postsContainer = document.getElementById('feed-posts-container');
     const gratitudeContainer = document.getElementById('gratitude-trigger-container');
-    const goalContainer = document.getElementById('goal-widget-container');
+    const goalsContainer = document.getElementById('goal-widget-container');
 
-    if (!feedContainer) {
-        console.error("Entwickler-Fehler: Das #feed-container Element wurde nicht auf der Feed-Seite gefunden.");
+    if (!postsContainer || !gratitudeContainer || !goalsContainer) {
+        console.error("Feed-Template-Struktur nicht gefunden.");
         return;
     }
 
-    if (!currentFamilyId) {
-        feedContainer.innerHTML = EmptyStateCard('Keine Familie geladen', 'Bitte melde dich an oder wähle eine Familie in den Einstellungen.', 'alert-circle');
-        if (gratitudeContainer) gratitudeContainer.innerHTML = '';
-        if (goalContainer) goalContainer.innerHTML = '';
-        return;
-    }
+    render(Gratitude.GratitudeTrigger(), gratitudeContainer);
     
-    // --- Event-Listener für FAB (Create Post) ---
-    try {
-        const createPostButton = document.getElementById('fab-create-post');
-        if (createPostButton) {
-            if (!createPostButton.dataset.listenerAttached) {
-                createPostButton.addEventListener('click', openCreatePostModal);
-                createPostButton.dataset.listenerAttached = 'true';
-            }
-        } else {
-            console.warn("Konnte den 'Neuer Beitrag'-Button (fab-create-post) nicht finden.");
-        }
-    } catch (e) {
-        console.error("Fehler beim Binden des createPost-Buttons:", e);
-    }
-    
-    // === NEU: Widgets rendern ===
-    if (gratitudeContainer) {
-        // Ruft die GratitudeTrigger-Funktion aus dem importierten Modul auf
-        gratitudeContainer.innerHTML = Gratitude.GratitudeTrigger();
-    }
+    const goalsQuery = query(collection(db, 'families', currentFamilyId, 'familyGoals'), orderBy('title'));
+    listeners.goals = onSnapshot(goalsQuery, (snapshot) => {
+        const goals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        render(Goals.GoalTrackerWidget(goals), goalsContainer);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }, (error) => console.error("Error loading goals:", error));
 
-    // === NEU: Goal-Widget-Listener ===
-    // (Wir benötigen einen separaten Listener für die Ziele)
-    if (goalContainer) {
-        const goalsQuery = query(
-            collection(db, 'families', currentFamilyId, 'familyGoals'),
-            orderBy('createdAt', 'desc')
-        );
-        pageListeners.feedGoals = onSnapshot(goalsQuery, (snapshot) => {
-            const goals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // Ruft die GoalTrackerWidget-Funktion aus dem importierten Modul auf
-            goalContainer.innerHTML = Goals.GoalTrackerWidget(goals);
-        }, (error) => {
-            console.error("Fehler beim Laden der Ziele für das Widget:", error);
-            goalContainer.innerHTML = ''; // Bei Fehler ausblenden
-        });
-    }
-    
-    // Initialen Ladezustand für Posts anzeigen
-    feedContainer.innerHTML = SkeletonCard();
+    showFeedSkeleton(postsContainer);
 
-    // Listener für Posts
-    const postsRef = collection(db, 'families', currentFamilyId, 'posts');
-    const q = query(postsRef, orderBy('createdAt', 'desc'));
-    
-    if (pageListeners.posts) pageListeners.posts(); // Alten Listener bereinigen
-    
-    let isInitialLoad = true;
+    let publicPosts = [];
+    let privatePosts = [];
+    let combinedLoaded = { public: false, private: false };
 
-    pageListeners.posts = onSnapshot(q, snapshot => {
-        if (isInitialLoad && snapshot.empty) {
-            feedContainer.innerHTML = EmptyStateCard('Noch keine Beiträge', 'Erstelle den ersten Beitrag im Feed!', 'message-square'); // NEU: Icon hinzugefügt
-            isInitialLoad = false;
+    const renderCombinedPosts = () => {
+        if (!combinedLoaded.public || !combinedLoaded.private) return;
+
+        const allPosts = [...publicPosts, ...privatePosts]
+            .sort((a, b) => {
+                const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+                const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+                return dateB - dateA;
+            });
+            
+        const uniquePosts = Array.from(new Map(allPosts.map(p => [p.id, p])).values());
+
+        if (uniquePosts.length === 0) {
+            const createButton = `
+                <button class="cta-primary-glow inline-flex items-center gap-2 px-8 py-3 text-lg" onclick="window.openCreatePostModal()">
+                    <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                    <span>Ersten Beitrag erstellen</span>
+                </button>
+            `;
+            const emptyStateHTML = EmptyStateCard(
+                'Willkommen bei FamilyHub!',
+                'Beginnt jetzt, besondere Momente zu teilen.',
+                '<i data-lucide="users" class="w-12 h-12 text-[#A04668]"></i>',
+                createButton
+            );
+            render(emptyStateHTML, postsContainer);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
         }
-        
-        if (isInitialLoad) {
-             const skeleton = feedContainer.querySelector('.skeleton-card');
-             if (skeleton) skeleton.parentElement.innerHTML = '';
-        }
 
-        snapshot.docChanges().forEach(change => {
-            const post = { id: change.doc.id, ...change.doc.data() };
-            const postElementId = `post-${post.id}`;
-            const existingElement = document.getElementById(postElementId);
-
-            if (change.type === "added") {
-                const newPostElement = createPostElement(post);
-                if (newPostElement) {
-                    if (isInitialLoad) {
-                        feedContainer.appendChild(newPostElement);
-                    } else {
-                        // Neue Posts (nach dem ersten Laden) oben anzeigen
-                        feedContainer.prepend(newPostElement);
-                    }
-                }
-            }
-            if (change.type === "modified") {
-                if (existingElement) {
-                    const updatedPostElement = createPostElement(post);
-                    if (updatedPostElement) {
-                        existingElement.replaceWith(updatedPostElement);
-                    }
-                }
-            }
-            if (change.type === "removed") {
-                if (existingElement) {
-                    existingElement.remove();
-                }
-            }
+        postsContainer.innerHTML = '';
+        uniquePosts.forEach(post => {
+            const postElement = createPostElement(post);
+            postsContainer.appendChild(postElement);
         });
-        
-        isInitialLoad = false;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    };
 
-        if (feedContainer.childElementCount === 0) {
-             feedContainer.innerHTML = EmptyStateCard('Noch keine Beiträge', 'Erstelle den ersten Beitrag im Feed!', 'message-square'); // NEU: Icon hinzugefügt
-        }
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    });
+    const publicPostsQuery = query(
+        collection(db, 'families', currentFamilyId, 'posts'),
+        where('participants', '==', null),
+        orderBy('createdAt', 'desc')
+    );
+    listeners.publicPosts = onSnapshot(publicPostsQuery, (snapshot) => {
+        publicPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        combinedLoaded.public = true;
+        renderCombinedPosts();
+    }, (error) => console.error("Error public posts:", error));
+    
+    const privatePostsQuery = query(
+        collection(db, 'families', currentFamilyId, 'posts'),
+        where('participants', 'array-contains', currentUser.uid),
+        orderBy('createdAt', 'desc')
+    );
+    listeners.privatePosts = onSnapshot(privatePostsQuery, (snapshot) => {
+        privatePosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        combinedLoaded.private = true;
+        renderCombinedPosts();
+    }, (error) => console.error("Error private posts:", error));
 }
 
 // --- Post-Element-Erstellung ---
