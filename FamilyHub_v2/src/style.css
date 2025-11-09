@@ -70,13 +70,17 @@
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
     }
+
+    .bg-accent-glow\/20 {
+        background-color: rgba(160, 70, 104, 0.2);
+    }
 }
 
 @layer components {
 
     /* --- A. Hauptkomponenten --- */
     .glass-premium {
-        @apply bg-background-glass border border-border-glass backdrop-blur-lg;
+        @apply bg-glass-bg border border-border-glass backdrop-blur-lg;
         box-shadow: var(--shadow-card);
     }
 
