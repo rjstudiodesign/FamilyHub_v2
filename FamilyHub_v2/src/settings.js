@@ -2,7 +2,7 @@
 import { 
     db, auth, 
     doc, getDoc, collection, query, where, getDocs, writeBatch,
-    addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, orderBy 
+    addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, orderBy, Timestamp 
 } from './firebase.js';
 import { getCurrentUser } from './auth.js';
 import { showNotification, openModal, closeModal, showButtonSpinner, hideButtonSpinner } from './ui.js';
@@ -30,7 +30,9 @@ export function renderSettings(listeners) {
     renderProfileTab(currentUser, currentUserData);
     renderFamilyTab(currentFamilyId);
     setupTabs(); // Diese Funktion wird jetzt überarbeitet
-    setupGoalsTab(currentFamilyId, listeners); 
+    setupGoalsTab(currentFamilyId, listeners);
+    setupFamilyTab(currentFamilyId);
+    setupChildControlsTab(currentFamilyId); // NEU 
 
     // Event-Listener für Formulare
     const profileForm = document.getElementById('profile-form');
@@ -282,13 +284,154 @@ window.deleteGoal = async (goalId) => {
     }
 };
 
+// --- KIND-PROFILE VERWALTUNG ---
+
+function setupFamilyTab(familyId) {
+    const addChildBtn = document.getElementById('add-child-profile-btn');
+    if (addChildBtn) {
+        addChildBtn.onclick = () => openChildProfileModal(familyId);
+    }
+}
+
+async function openChildProfileModal(familyId) {
+    const modalId = 'modal-child-profile';
+    
+    // Lade alle echten Mitglieder für Eltern-Dropdown
+    const membersRef = collection(db, 'families', familyId, 'membersData');
+    const snapshot = await getDocs(membersRef);
+    const members = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(m => !m.isChildProfile); // Nur echte Mitglieder
+    
+    const memberOptions = members.map(m => 
+        `<option value="${m.id}">${m.name}</option>`
+    ).join('');
+    
+    const modalContent = `
+        <div class="modal-content glass-premium max-w-lg w-full">
+            <h2 class="text-xl font-bold text-gradient mb-6">Neues Kind-Profil erstellen</h2>
+            <form id="child-profile-form" class="space-y-4">
+                <div>
+                    <label for="child-name" class="form-label">Name des Kindes</label>
+                    <input type="text" id="child-name" class="form-input" required placeholder="z.B. Max">
+                </div>
+                <div>
+                    <label for="child-birthday" class="form-label">Geburtstag</label>
+                    <input type="date" id="child-birthday" class="form-input" required>
+                </div>
+                <div>
+                    <label for="child-parent1" class="form-label">Elternteil 1</label>
+                    <select id="child-parent1" class="form-input" required>
+                        <option value="">Bitte wählen...</option>
+                        ${memberOptions}
+                    </select>
+                </div>
+                <div>
+                    <label for="child-parent2" class="form-label">Elternteil 2 (optional)</label>
+                    <select id="child-parent2" class="form-input">
+                        <option value="">Kein zweiter Elternteil</option>
+                        ${memberOptions}
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3 pt-6 border-t border-border-glass">
+                    <button type="button" class="btn-secondary" data-action="close-modal">Abbrechen</button>
+                    <button type="submit" id="child-submit-btn" class="cta-primary-glow">
+                        <span class="btn-text">Erstellen</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    openModal(modalContent, modalId);
+
+    document.getElementById('child-profile-form').onsubmit = (e) => {
+        e.preventDefault();
+        handleSaveChildProfile(familyId);
+    };
+}
+
+async function handleSaveChildProfile(familyId) {
+    const submitBtn = document.getElementById('child-submit-btn');
+    showButtonSpinner(submitBtn);
+
+    const name = document.getElementById('child-name').value.trim();
+    const birthdayStr = document.getElementById('child-birthday').value;
+    const parent1 = document.getElementById('child-parent1').value;
+    const parent2 = document.getElementById('child-parent2').value;
+
+    if (!name || !birthdayStr || !parent1) {
+        showNotification("Name, Geburtstag und Elternteil 1 sind erforderlich.", "error");
+        hideButtonSpinner(submitBtn);
+        return;
+    }
+
+    try {
+        // Konvertiere Datum zu Firebase Timestamp
+        const birthday = Timestamp.fromDate(new Date(birthdayStr));
+        
+        const parents = [parent1];
+        if (parent2) parents.push(parent2);
+
+        const childData = {
+            name: name,
+            birthday: birthday,
+            parents: parents,
+            isChildProfile: true,
+            photoURL: 'img/default_avatar.png',
+            createdAt: serverTimestamp()
+        };
+
+        const membersRef = collection(db, 'families', familyId, 'membersData');
+        await addDoc(membersRef, childData);
+
+        showNotification(`Kind-Profil für ${name} erstellt!`, "success");
+        closeModal('modal-child-profile');
+        renderFamilyTab(familyId); // Liste aktualisieren
+
+    } catch (error) {
+        console.error("Fehler beim Erstellen des Kind-Profils:", error);
+        showNotification("Fehler beim Erstellen.", "error");
+    } finally {
+        hideButtonSpinner(submitBtn);
+    }
+}
+
+window.deleteChildProfile = async (childId) => {
+    if (!confirm("Möchtest du dieses Kind-Profil wirklich löschen?")) return;
+    
+    const { currentFamilyId } = getCurrentUser();
+    const childRef = doc(db, 'families', currentFamilyId, 'membersData', childId);
+    
+    try {
+        await deleteDoc(childRef);
+        showNotification("Kind-Profil gelöscht.", "success");
+        renderFamilyTab(currentFamilyId);
+    } catch (error) {
+        console.error("Fehler beim Löschen des Kind-Profils:", error);
+        showNotification("Löschen fehlgeschlagen.", "error");
+    }
+};
+
 // --- BISHERIGE FUNKTIONEN (Unverändert) ---
 
 function renderProfileTab(user, userData) {
     const nameInput = document.getElementById('profile-name');
     const emailInput = document.getElementById('profile-email');
+    const birthdayInput = document.getElementById('profile-birthday');
+    
     if (nameInput) nameInput.value = userData.name || '';
     if (emailInput) emailInput.value = user.email || '';
+    
+    // Geburtstag von Timestamp zu YYYY-MM-DD konvertieren
+    if (birthdayInput && userData.birthday) {
+        const date = userData.birthday.toDate ? userData.birthday.toDate() : new Date(userData.birthday);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        birthdayInput.value = `${year}-${month}-${day}`;
+    } else if (birthdayInput) {
+        birthdayInput.value = '';
+    }
 }
 
 async function renderFamilyTab(familyId) {
@@ -307,22 +450,50 @@ async function renderFamilyTab(familyId) {
             return;
         }
 
-        listContainer.innerHTML = members.map(member => `
-            <div class="flex items-center justify-between p-3 bg-background-glass rounded-lg">
-                <div class="flex items-center gap-3">
-                    <img src="${member.photoURL || 'img/default_avatar.png'}" alt="${member.name}" class="w-10 h-10 rounded-full object-cover">
-                    <div>
-                        <p class="font-semibold">${member.name}</p>
-                        <p class="text-sm text-text-secondary">${member.email}</p>
+        // Sortiere: echte Mitglieder zuerst, dann Kind-Profile
+        members.sort((a, b) => {
+            if (a.isChildProfile && !b.isChildProfile) return 1;
+            if (!a.isChildProfile && b.isChildProfile) return -1;
+            return 0;
+        });
+
+        listContainer.innerHTML = members.map(member => {
+            const isChild = member.isChildProfile === true;
+            const birthday = member.birthday ? formatBirthday(member.birthday) : null;
+            
+            return `
+                <div class="flex items-center justify-between p-3 bg-background-glass rounded-lg">
+                    <div class="flex items-center gap-3">
+                        <img src="${member.photoURL || 'img/default_avatar.png'}" alt="${member.name}" class="w-10 h-10 rounded-full object-cover">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <p class="font-semibold">${member.name}</p>
+                                ${isChild ? '<span class="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full">Kind</span>' : ''}
+                            </div>
+                            <p class="text-sm text-text-secondary">${isChild && birthday ? birthday : member.email || ''}</p>
+                        </div>
                     </div>
+                    ${isChild ? `<button class="icon-button-ghost text-red-500" onclick="window.deleteChildProfile('${member.id}')">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>` : ''}
                 </div>
-                </div>
-        `).join('');
+            `;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
 
     } catch (error) {
         console.error("Fehler beim Laden der Familienmitglieder:", error);
         listContainer.innerHTML = `<p class="text-red-400 text-center">Fehler beim Laden der Mitglieder.</p>`;
     }
+}
+
+function formatBirthday(birthday) {
+    if (!birthday) return '';
+    const date = birthday.toDate ? birthday.toDate() : new Date(birthday);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 async function handleProfileUpdate(e) {
@@ -332,33 +503,55 @@ async function handleProfileUpdate(e) {
 
     const { currentUser, currentUserData, currentFamilyId } = getCurrentUser();
     const newName = document.getElementById('profile-name').value.trim();
+    const birthdayStr = document.getElementById('profile-birthday').value;
 
     if (!currentUser || !currentFamilyId) {
         showNotification("Nicht angemeldet.", "error");
         hideButtonSpinner(submitBtn);
         return;
     }
-    if (newName === currentUserData.name) {
+
+    // Prüfen ob es Änderungen gibt
+    const oldBirthdayStr = currentUserData.birthday 
+        ? (() => {
+            const date = currentUserData.birthday.toDate ? currentUserData.birthday.toDate() : new Date(currentUserData.birthday);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        })()
+        : '';
+    
+    if (newName === currentUserData.name && birthdayStr === oldBirthdayStr) {
         hideButtonSpinner(submitBtn);
         return; // Keine Änderung
     }
 
     try {
         const batch = writeBatch(db);
+        const updateData = { name: newName };
+        
+        // Geburtstag zu Firebase Timestamp konvertieren
+        if (birthdayStr) {
+            updateData.birthday = Timestamp.fromDate(new Date(birthdayStr));
+        }
         
         // Update in /users/{uid}
         const userDocRef = doc(db, 'users', currentUser.uid);
-        batch.set(userDocRef, { name: newName }, { merge: true }); // Statt update
+        batch.set(userDocRef, updateData, { merge: true });
 
         // Update in /families/{fid}/membersData/{uid}
         const memberDataDocRef = doc(db, 'families', currentFamilyId, 'membersData', currentUser.uid);
-        batch.update(memberDataDocRef, { name: newName });
+        batch.update(memberDataDocRef, updateData);
 
         await batch.commit();
 
         showNotification("Profil aktualisiert!", "success");
         // Lokale Daten aktualisieren
         currentUserData.name = newName;
+        if (birthdayStr) {
+            currentUserData.birthday = updateData.birthday;
+        }
         renderProfileTab(currentUser, currentUserData); // UI neu rendern
 
     } catch (error) {
@@ -405,3 +598,101 @@ async function handleInvite(e) {
         hideButtonSpinner(submitBtn);
     }
 }
+
+// --- KINDERSICHERUNGS-TAB ---
+
+async function setupChildControlsTab(familyId) {
+    const container = document.getElementById('child-controls-container');
+    if (!container) return;
+
+    try {
+        const membersRef = collection(db, 'families', familyId, 'membersData');
+        const snapshot = await getDocs(membersRef);
+        const members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const children = members.filter(m => m.isChildProfile === true);
+        const adults = members.filter(m => !m.isChildProfile);
+
+        if (children.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-secondary p-8 border-2 border-dashed border-border-glass rounded-lg">
+                    <i data-lucide="users" class="w-12 h-12 mx-auto mb-4"></i>
+                    <h3 class="font-bold text-lg">Keine Kind-Profile</h3>
+                    <p class="text-sm">Erstelle Kind-Profile im Familie-Tab.</p>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        container.innerHTML = children.map(child => {
+            const permissions = child.permissions || {};
+            
+            const adultsHTML = adults.map(adult => {
+                const hasPermission = permissions[adult.id]?.canPostAs === true;
+                
+                return `
+                    <label class="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-all cursor-pointer">
+                        <div class="flex items-center gap-3">
+                            <img src="${adult.photoURL || 'img/default_avatar.png'}" 
+                                 alt="${adult.name}" 
+                                 class="w-10 h-10 rounded-full object-cover">
+                            <span class="text-white">${adult.name}</span>
+                        </div>
+                        <input type="checkbox" 
+                               ${hasPermission ? 'checked' : ''}
+                               onchange="window.toggleChildPermission('${child.id}', '${adult.id}', this.checked)"
+                               class="form-checkbox w-5 h-5 rounded border-border-glass bg-background-glass text-accent-glow focus:ring-accent-glow">
+                    </label>
+                `;
+            }).join('');
+
+            return `
+                <div class="glass-list-item p-6 rounded-lg">
+                    <div class="flex items-center gap-3 mb-4">
+                        <img src="${child.photoURL || 'img/default_avatar.png'}" 
+                             alt="${child.name}" 
+                             class="w-12 h-12 rounded-full object-cover">
+                        <div>
+                            <h3 class="font-bold text-white">${child.name}</h3>
+                            <p class="text-sm text-secondary">Kind-Profil</p>
+                        </div>
+                    </div>
+                    <div class="border-t border-border-glass pt-4">
+                        <p class="text-sm font-semibold text-white mb-3">Darf im Namen von ${child.name} posten:</p>
+                        <div class="space-y-2">
+                            ${adultsHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    } catch (error) {
+        console.error("Fehler beim Laden der Kindersicherungs-Einstellungen:", error);
+        container.innerHTML = `<p class="text-red-400">Fehler beim Laden.</p>`;
+    }
+}
+
+window.toggleChildPermission = async (childId, adultId, allowed) => {
+    const { currentFamilyId } = getCurrentUser();
+    
+    try {
+        const childRef = doc(db, 'families', currentFamilyId, 'membersData', childId);
+        
+        await updateDoc(childRef, {
+            [`permissions.${adultId}.canPostAs`]: allowed
+        });
+
+        showNotification(
+            allowed ? "Berechtigung erteilt" : "Berechtigung entzogen", 
+            "success"
+        );
+
+    } catch (error) {
+        console.error("Fehler beim Aktualisieren der Berechtigung:", error);
+        showNotification("Fehler beim Speichern.", "error");
+    }
+};

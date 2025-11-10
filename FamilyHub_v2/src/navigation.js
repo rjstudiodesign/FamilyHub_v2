@@ -13,6 +13,13 @@ import { renderChallenges } from './challenges.js';
 import { renderFinanzen } from './finanzen.js';
 import { renderChronik } from './chronik.js';
 import { renderLogin } from './login.js';
+import { renderTickets } from './tickets.js';
+import { renderStammbaum } from './stammbaum.js';
+import { renderRezepte } from './rezepte.js';
+import { renderDokumente } from './dokumente.js';
+import { renderCommunity } from './community.js';
+import { renderZeitkapsel } from './zeitkapsel.js';
+import { renderHobbys } from './hobbys.js';
 import { createLogger } from './utils/logger.js';
 
 const logger = createLogger('Navigation');
@@ -65,6 +72,14 @@ const routes = {
 		title: 'Challenges',
 		icon: 'award'
 	},
+	// --- HIER EINFÜGEN ---
+	'menu': {
+		templateId: 'template-menu',
+		init: null, // 'menu' hat keine eigene Logik, nur Links
+		title: 'App-Übersicht',
+		icon: 'layout-grid'
+	},
+	// --- ENDE ---
 	'settings': {
 		templateId: 'template-settings',
 		init: renderSettings,
@@ -88,6 +103,48 @@ const routes = {
         init: renderChronik,
         title: 'Chronik',
         icon: 'history'
+    },
+    'tickets': {
+        templateId: 'template-tickets',
+        init: renderTickets,
+        title: 'Tickets',
+        icon: 'ticket'
+    },
+    'stammbaum': {
+        templateId: 'template-stammbaum',
+        init: renderStammbaum,
+        title: 'Stammbaum',
+        icon: 'network'
+    },
+    'rezepte': {
+        templateId: 'template-rezepte',
+        init: renderRezepte,
+        title: 'Rezepte',
+        icon: 'chef-hat'
+    },
+    'dokumente': {
+        templateId: 'template-dokumente',
+        init: renderDokumente,
+        title: 'Dokumente',
+        icon: 'file-text'
+    },
+    'community': {
+        templateId: 'template-community',
+        init: renderCommunity,
+        title: 'Community',
+        icon: 'building-2'
+    },
+    'zeitkapsel': {
+        templateId: 'template-zeitkapsel',
+        init: renderZeitkapsel,
+        title: 'Zeitkapsel',
+        icon: 'clock'
+    },
+    'hobbys': {
+        templateId: 'template-hobbys',
+        init: renderHobbys,
+        title: 'Hobbys',
+        icon: 'gamepad-2'
     }
 };
 

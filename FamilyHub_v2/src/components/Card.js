@@ -1,4 +1,26 @@
 // --- HILFSFUNKTIONEN ---
+      function renderReactions(reactions) {
+          if (!reactions || Object.keys(reactions).length === 0) return '';
+          
+          const reactionsArray = Object.entries(reactions)
+              .filter(([emoji, users]) => users && users.length > 0)
+              .map(([emoji, users]) => ({ emoji, count: users.length }))
+              .sort((a, b) => b.count - a.count);
+          
+          if (reactionsArray.length === 0) return '';
+          
+          return `
+              <div class="reactions-display flex items-center gap-2 flex-wrap mb-2">
+                  ${reactionsArray.map(({ emoji, count }) => `
+                      <span class="reaction-badge glass-premium px-2 py-1 rounded-full text-sm flex items-center gap-1">
+                          <span>${emoji}</span>
+                          <span class="text-text-secondary">${count}</span>
+                      </span>
+                  `).join('')}
+              </div>
+          `;
+      }
+
       function renderActions(actions) {
           if (!actions || actions.length === 0) return '';
           return `
@@ -27,8 +49,21 @@
               imageUrl,
               postId,
               actions,
-              post // Bündele alle Daten für PollCard etc.
+              reactions,
+              post, // Bündele alle Daten für PollCard etc.
+              membersData // NEU: Mitgliederdaten
           } = data;
+
+          // Prüfe, ob dieser Post im Namen eines Kindes erstellt wurde
+          const postData = data.post || data;
+          const isPostedOnBehalf = postData.realAuthorId && postData.realAuthorId !== postData.authorId;
+          
+          // Hole den Namen des echten Autors
+          let postedByText = '';
+          if (isPostedOnBehalf && membersData && membersData[postData.realAuthorId]) {
+              const realAuthorName = membersData[postData.realAuthorId].name;
+              postedByText = `<p class="text-xs text-secondary italic mt-1">Gepostet von ${realAuthorName}</p>`;
+          }
 
           const header = `
               <div class="flex items-center gap-3 mb-4">
@@ -38,6 +73,7 @@
                   <div class="flex-1">
                       <p class="font-semibold text-white">${authorName}</p>
                       <p class="text-xs text-secondary">${timestamp}</p>
+                      ${postedByText}
                   </div>
                   <div class="post-menu-btn">
                       <button 
@@ -53,8 +89,7 @@
 
           // --- NEU: Erweiterte LOGIK-Integration für Gallery ---
           let body;
-          // Der 'post' Parameter ist jetzt das 'data' Objekt selbst, wenn es kein verschachteltes 'post' gibt.
-          const postData = data.post || data;
+          // postData wurde bereits oben deklariert
 
           if (postData.type === 'poll') {
               body = window.PollCard(postData);
@@ -89,6 +124,7 @@
               </div>
           ` : '';
 
+          const reactionsHtml = renderReactions(reactions);
           const footer = renderActions(actions);
 
           // Für spezielle Karten rendern wir keinen Standard-Footer
@@ -99,6 +135,7 @@
                   ${header}
                   ${body}
                   ${image}
+                  ${reactionsHtml}
                   ${finalFooter}
               </div>
           `;

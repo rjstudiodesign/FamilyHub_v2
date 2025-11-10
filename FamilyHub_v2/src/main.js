@@ -8,6 +8,7 @@ import { initAuth, signOutUser } from './auth.js';
 import { renderLogin } from './login.js';
 import './welcome.js'; // Für Seiteneffekte importieren
 import { createLogger } from './utils/logger.js';
+import { initEmergencyButton } from './emergency.js';
 
 const logger = createLogger('App');
 
@@ -48,6 +49,9 @@ initAuth(async (session) => {
         // ANGEMELDET
         authContainer.innerHTML = ''; 
         appShell.classList.remove('hidden'); 
+
+        // Notfallknopf initialisieren
+        initEmergencyButton();
 
         if (session.familyId) {
             // Benutzer hat eine Familie -> zum Feed

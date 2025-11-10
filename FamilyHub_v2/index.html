@@ -86,6 +86,12 @@
         <i data-lucide="layout-grid"></i> <span>Mehr</span>
       </button>
     </nav>
+
+    <!-- Notfallknopf -->
+    <button id="emergency-button" class="emergency-button" aria-label="Notfall">
+      <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      <div class="emergency-progress"></div>
+    </button>
   </div>
   
   <template id="template-login">
@@ -219,6 +225,84 @@
     </div>
   </template>
 
+  <template id="template-community">
+    <div class="pinnwand-column-container">
+      <div class="pinnwand-column" data-status="todo">
+        <div class="pinnwand-column-header">
+          <h3>Geplant</h3>
+          <span class="count" id="count-todo">0</span>
+          <button class="btn-add-task" data-status="todo">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <div class="pinnwand-card-list" id="pinnwand-todo"></div>
+      </div>
+      <div class="pinnwand-column" data-status="progress">
+        <div class="pinnwand-column-header">
+          <h3>Aktiv</h3>
+          <span class="count" id="count-progress">0</span>
+          <button class="btn-add-task" data-status="progress">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <div class="pinnwand-card-list" id="pinnwand-progress"></div>
+      </div>
+      <div class="pinnwand-column" data-status="done">
+        <div class="pinnwand-column-header">
+          <h3>Abgeschlossen</h3>
+          <span class="count" id="count-done">0</span>
+          <button class="btn-add-task" data-status="done">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <div class="pinnwand-card-list" id="pinnwand-done"></div>
+      </div>
+    </div>
+  </template>
+
+  <template id="template-zeitkapsel">
+    <div class="flex flex-col gap-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gradient">Zeitkapsel</h2>
+        <button id="btn-create-capsule" class="cta-primary-glow">
+          <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Neue Kapsel erstellen
+        </button>
+      </div>
+      
+      <p class="text-text-secondary text-sm">
+        Erstelle Nachrichten und Erinnerungen, die erst in der Zukunft sichtbar werden. 
+        Perfekt für Geburtstage, Jubiläen oder besondere Momente.
+      </p>
+      
+      <div id="zeitkapsel-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="flex justify-center items-center p-8 col-span-full">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="template-hobbys">
+    <div class="flex flex-col gap-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gradient">Hobbys & Interessen</h2>
+        <button id="btn-create-hobby" class="cta-primary-glow">
+          <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Neues Hobby vorschlagen
+        </button>
+      </div>
+      
+      <p class="text-text-secondary text-sm">
+        Entdeckt gemeinsame Interessen und plant Aktivitäten zusammen!
+      </p>
+      
+      <div id="hobbys-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="flex justify-center items-center p-8 col-span-full">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
   <template id="template-chat">
             <div id="chat-container" class="glass-premium rounded-xl h-[70vh] flex overflow-hidden">
                 
@@ -262,10 +346,45 @@
                             </div>
                         <form id="chat-input-form" class="p-4 border-t border-border-glass">
                             <div class="flex items-center gap-2">
-                                <input type="text" id="chat-message-input" class="form-input flex-1" placeholder="Nachricht schreiben..." required>
-                                <button type="submit" class="btn-premium btn-icon">
+                                <!-- NEU: Anhang-Button -->
+                                <div class="relative">
+                                    <button type="button" id="chat-attachment-btn" class="btn-icon-ghost">
+                                        <i data-lucide="paperclip" class="w-5 h-5"></i>
+                                    </button>
+                                    <!-- Attachment-Menu (zunächst versteckt) -->
+                                    <div id="chat-attachment-menu" class="hidden absolute bottom-full left-0 mb-2 glass-premium rounded-xl p-2 shadow-xl min-w-[150px] z-50">
+                                        <button type="button" id="chat-gallery-btn" class="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-white/10 transition-all">
+                                            <i data-lucide="image" class="w-5 h-5 text-accent-glow"></i>
+                                            <span class="text-white">Galerie</span>
+                                        </button>
+                                        <button type="button" id="chat-camera-btn" class="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-white/10 transition-all">
+                                            <i data-lucide="camera" class="w-5 h-5 text-accent-glow"></i>
+                                            <span class="text-white">Kamera</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <input type="text" id="chat-message-input" class="form-input flex-1" placeholder="Nachricht schreiben...">
+                                
+                                <!-- NEU: Verstecktes File-Input für Galerie -->
+                                <input type="file" id="chat-file-input" accept="image/*" class="hidden">
+                                
+                                <!-- Send-Button (nur sichtbar, wenn Text vorhanden) -->
+                                <button type="submit" id="chat-send-btn" class="btn-premium btn-icon">
                                     <i data-lucide="send" class="w-5 h-5"></i>
                                 </button>
+                                
+                                <!-- NEU: Mikrofon-Button (nur sichtbar, wenn kein Text) -->
+                                <button type="button" id="chat-mic-btn" class="btn-premium btn-icon hidden">
+                                    <i data-lucide="mic" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- NEU: Recording-Indikator (zunächst versteckt) -->
+                            <div id="chat-recording-indicator" class="hidden mt-3 flex items-center gap-3 bg-red-500/20 rounded-lg p-3 border border-red-500/30">
+                                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                                <span class="text-white font-semibold">Aufnahme läuft...</span>
+                                <span id="chat-recording-time" class="text-secondary ml-auto">0:00</span>
                             </div>
                         </form>
                     </div>
@@ -313,6 +432,10 @@
           <span>Mitteilungen</span>
           <span class="nav-badge-premium">Pro</span>
         </button>
+        <button class="settings-nav-item" data-tab="child-controls">
+          <i data-lucide="shield"></i>
+          <span>Kindersicherung</span>
+        </button>
       </nav>
 
       <div id="settings-tab-content" class="glass-premium p-6 lg:p-8">
@@ -327,6 +450,10 @@
               <span class="text-secondary text-sm">E-Mail</span>
               <input id="profile-email" type="email" class="form-input" disabled />
             </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-secondary text-sm">Mein Geburtstag</span>
+              <input id="profile-birthday" type="date" class="form-input" />
+            </label>
             <button type="submit" class="cta-primary-glow mt-2 self-start">
               <i data-lucide="save" class="w-5 h-5 mr-2"></i> Speichern
             </button>
@@ -334,7 +461,12 @@
         </section>
 
         <section id="settings-family" class="settings-tab-panel hidden">
-          <h2 class="text-lg font-bold text-gradient mb-4">Familienmitglieder</h2>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold text-gradient">Familienmitglieder</h2>
+            <button id="add-child-profile-btn" class="cta-primary-glow">
+              <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Kind-Profil
+            </button>
+          </div>
           <div id="family-members-list" class="flex flex-col gap-3">
             </div>
         </section>
@@ -399,6 +531,14 @@
                     </label>
                 </div>
            </div>
+        </section>
+
+        <section id="settings-child-controls" class="settings-tab-panel hidden">
+          <h2 class="text-lg font-bold text-gradient mb-4">Kindersicherung</h2>
+          <p class="text-secondary mb-6">Verwalte, wer im Namen deiner Kind-Profile posten darf.</p>
+          <div id="child-controls-container" class="space-y-6">
+            <!-- Wird dynamisch gefüllt -->
+          </div>
         </section>
       </div>
     </div>
@@ -505,6 +645,12 @@
             </div>
             <span class="app-dashboard-label">Einstellungen</span>
         </button>
+        <button class="app-dashboard-item" data-page="gallery">
+            <div class="app-dashboard-icon bg-pink-500/20 text-pink-400">
+                <i data-lucide="image"></i>
+            </div>
+            <span class="app-dashboard-label">Galerie</span>
+        </button>
         <button class="app-dashboard-item" data-page="challenges">
             <div class="app-dashboard-icon bg-yellow-500/20 text-yellow-400">
                 <i data-lucide="award"></i>
@@ -524,14 +670,174 @@
             <span class="app-dashboard-label">Chronik</span>
             <span class="nav-badge-premium">Pro</span>
         </button>
+        <button class="app-dashboard-item" data-page="tickets">
+            <div class="app-dashboard-icon bg-orange-500/20 text-orange-400">
+                <i data-lucide="ticket"></i>
+            </div>
+            <span class="app-dashboard-label">Tickets</span>
+        </button>
+        <button class="app-dashboard-item" data-page="stammbaum">
+            <div class="app-dashboard-icon bg-teal-500/20 text-teal-400">
+                <i data-lucide="network"></i>
+            </div>
+            <span class="app-dashboard-label">Stammbaum</span>
+        </button>
+        <button class="app-dashboard-item" data-page="rezepte">
+            <div class="app-dashboard-icon bg-amber-500/20 text-amber-400">
+                <i data-lucide="chef-hat"></i>
+            </div>
+            <span class="app-dashboard-label">Rezepte</span>
+        </button>
+        <button class="app-dashboard-item" data-page="dokumente">
+            <div class="app-dashboard-icon bg-indigo-500/20 text-indigo-400">
+                <i data-lucide="file-text"></i>
+            </div>
+            <span class="app-dashboard-label">Dokumente</span>
+        </button>
+        <button class="app-dashboard-item" data-page="community">
+            <div class="app-dashboard-icon bg-cyan-500/20 text-cyan-400">
+                <i data-lucide="building-2"></i>
+            </div>
+            <span class="app-dashboard-label">Community</span>
+        </button>
+        <button class="app-dashboard-item" data-page="zeitkapsel">
+            <div class="app-dashboard-icon bg-purple-500/20 text-purple-400">
+                <i data-lucide="clock"></i>
+            </div>
+            <span class="app-dashboard-label">Zeitkapsel</span>
+        </button>
+        <button class="app-dashboard-item" data-page="hobbys">
+            <div class="app-dashboard-icon bg-pink-500/20 text-pink-400">
+                <i data-lucide="gamepad-2"></i>
+            </div>
+            <span class="app-dashboard-label">Hobbys</span>
+        </button>
     </div>
   </template>
 
   <template id="template-finanzen">
+    <div class="flex flex-col gap-6">
+      <!-- Gemeinsamer Topf Header -->
+      <div class="glass-premium p-6 rounded-xl">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h2 class="text-2xl font-bold text-gradient mb-1">Gemeinsamer Topf</h2>
+            <p class="text-sm text-text-secondary">Familien-Budget</p>
+          </div>
+          <i data-lucide="piggy-bank" class="w-12 h-12 text-primary-rose opacity-50"></i>
+        </div>
+        
+        <div class="text-center py-6 border-y border-border-glass my-4">
+          <p class="text-sm text-text-secondary mb-2">Aktueller Kontostand</p>
+          <p id="shared-balance-display" class="text-5xl font-bold text-gradient">
+            <span class="spinner inline-block"></span>
+          </p>
+        </div>
+        
+        <div class="flex gap-3">
+          <button id="btn-einzahlen" class="cta-primary-glow flex-1">
+            <i data-lucide="plus-circle" class="w-5 h-5 mr-2"></i>
+            <span>Einzahlen</span>
+          </button>
+          <button id="btn-ausbuchen" class="btn-secondary flex-1">
+            <i data-lucide="minus-circle" class="w-5 h-5 mr-2"></i>
+            <span>Ausbuchen</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Transaktionsverlauf -->
+      <div>
+        <h3 class="text-lg font-semibold text-white mb-4">Transaktionsverlauf</h3>
+        <div id="transactions-list-container" class="space-y-3">
+          <div class="spinner mx-auto"></div>
+        </div>
+      </div>
+      
+      <!-- Private Ausgaben Sektion (optional, als Ergänzung) -->
+      <div>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold text-white">Private Ausgaben</h3>
+          <button id="btn-private-expense" class="btn-secondary">
+            <i data-lucide="receipt" class="w-5 h-5 mr-2"></i>
+            <span>Neue Ausgabe</span>
+          </button>
+        </div>
+        <div id="private-expenses-list" class="space-y-3">
+          <!-- Private Ausgaben werden hier gerendert -->
+        </div>
+      </div>
+    </div>
     </template>
   
   <template id="template-chronik">
-    </template>
+  </template>
+
+  <template id="template-dokumente">
+    <div class="flex flex-col gap-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gradient">Dokumente</h2>
+        <button id="btn-upload-document" class="cta-primary-glow">
+          <i data-lucide="upload" class="w-5 h-5 mr-2"></i> Dokument hochladen
+        </button>
+      </div>
+      
+      <div id="dokumente-list-container" class="space-y-3">
+        <div class="flex justify-center items-center p-8">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="template-tickets">
+    <div class="flex flex-col gap-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gradient">Ticket-Planung</h2>
+        <button id="btn-create-ticket" class="cta-primary-glow">
+          <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Neues Ticket planen
+        </button>
+      </div>
+      
+      <div id="tickets-list-container" class="space-y-4">
+        <div class="flex justify-center items-center p-8">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="template-stammbaum">
+    <div class="flex flex-col gap-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gradient">Stammbaum</h2>
+      </div>
+      
+      <div id="stammbaum-container" class="stammbaum-wrapper">
+        <div class="flex justify-center items-center p-8">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="template-rezepte">
+    <div class="flex flex-col gap-6">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gradient">Familien-Rezepte</h2>
+        <button id="btn-create-rezept" class="cta-primary-glow">
+          <i data-lucide="plus" class="w-5 h-5 mr-2"></i> Neues Rezept
+        </button>
+      </div>
+      
+      <div id="rezepte-grid-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div class="flex justify-center items-center p-8 col-span-full">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
   <div id="modal-container"></div>
 
 <script src="https://unpkg.com/lucide@latest"></script>

@@ -33,7 +33,7 @@ export function renderCalendar(listeners) {
     }
 
     // Daten laden
-    const { currentFamilyId } = getCurrentUser();
+    const { currentFamilyId, membersData } = getCurrentUser();
     if (!currentFamilyId) {
         console.error("Kalender: Keine FamilyID gefunden.");
         return;
@@ -45,29 +45,23 @@ export function renderCalendar(listeners) {
     );
     
     listeners.calendar = onSnapshot(eventsQuery, (snapshot) => {
-        snapshot.docChanges().forEach(change => {
+        // Normale Events aus Firestore - Reset bei jedem Snapshot
+        events = [];
+        
+        snapshot.forEach(doc => {
             const event = { 
-                id: change.doc.id, 
-                ...change.doc.data(),
-                date: change.doc.data().date.toDate()
+                id: doc.id, 
+                ...doc.data(),
+                date: doc.data().date.toDate()
             };
-
-            if (change.type === "added") {
-                events.push(event);
-            }
-            if (change.type === "modified") {
-                const index = events.findIndex(e => e.id === event.id);
-                if (index > -1) {
-                    events[index] = event;
-                }
-            }
-            if (change.type === "removed") {
-                const index = events.findIndex(e => e.id === event.id);
-                if (index > -1) {
-                    events.splice(index, 1);
-                }
-            }
+            events.push(event);
         });
+        
+        // Geburtstags-Events aus membersData generieren
+        const birthdayEvents = generateBirthdayEvents(membersData);
+        
+        // Kombiniere beide Event-Listen
+        events = [...events, ...birthdayEvents];
         
         // Ansicht basierend auf dem aktuellen State neu rendern
         renderCurrentView();
@@ -75,6 +69,35 @@ export function renderCalendar(listeners) {
         console.error("Kalender-Datenfehler:", error);
         showNotification("Fehler beim Laden des Kalenders", "error");
     });
+}
+
+// Generiere virtuelle Geburtstags-Events aus membersData
+function generateBirthdayEvents(membersData) {
+    if (!membersData) return [];
+    
+    const birthdayEvents = [];
+    const currentYear = currentDate.getFullYear();
+    
+    Object.values(membersData).forEach(member => {
+        if (member.birthday) {
+            // Konvertiere Firestore Timestamp zu Date
+            const birthdayDate = member.birthday.toDate ? member.birthday.toDate() : new Date(member.birthday);
+            
+            // Erstelle Event für das aktuell angezeigte Jahr
+            const birthdayThisYear = new Date(currentYear, birthdayDate.getMonth(), birthdayDate.getDate());
+            
+            birthdayEvents.push({
+                id: `birthday-${member.uid || member.id}-${currentYear}`,
+                title: `🎂 Geburtstag: ${member.name}`,
+                date: birthdayThisYear,
+                type: 'birthday',
+                memberName: member.name,
+                isVirtual: true // Markierung, dass dies kein Firestore-Event ist
+            });
+        }
+    });
+    
+    return birthdayEvents;
 }
 
 function setupCalendarUI() {
@@ -186,8 +209,21 @@ function createDayElement(date) {
     dayEvents.forEach(ev => {
         const eventBar = document.createElement('div');
         eventBar.className = 'event-bar';
+        
+        // Spezielle Styling für Geburtstage
+        if (ev.type === 'birthday') {
+            eventBar.classList.add('event-bar-birthday');
+        }
+        
         eventBar.textContent = ev.title;
-        eventBar.onclick = (e) => { e.stopPropagation(); window.openEventDetails(ev); };
+        
+        // Geburtstage sind nicht klickbar (da virtuell)
+        if (!ev.isVirtual) {
+            eventBar.onclick = (e) => { e.stopPropagation(); window.openEventDetails(ev); };
+        } else {
+            eventBar.style.cursor = 'default';
+        }
+        
         eventsContainer.appendChild(eventBar);
     });
     
@@ -233,15 +269,21 @@ function renderAgendaItem(event) {
     const day = date.getDate();
     const time = event.allDay ? 'Ganztägig' : date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
     
+    // Spezielle Styling für Geburtstage
+    const isBirthday = event.type === 'birthday';
+    const itemClass = isBirthday ? 'agenda-item agenda-item-birthday' : 'agenda-item';
+    const icon = isBirthday ? '🎂' : '';
+    const clickHandler = event.isVirtual ? '' : `onclick="window.openEventDetails(${JSON.stringify(event).replace(/"/g, "'")})"`;
+    
     return `
-    <div class="agenda-item" onclick="window.openEventDetails(${JSON.stringify(event).replace(/"/g, "'")})">
-        <div class="agenda-date-box">
+    <div class="${itemClass}" ${clickHandler} style="${event.isVirtual ? 'cursor: default;' : ''}">
+        <div class="agenda-date-box ${isBirthday ? 'birthday-date-box' : ''}">
             <span class="month">${month}</span>
             <span class="day">${day}</span>
         </div>
         <div class="agenda-info">
-            <p class="title">${event.title}</p>
-            <p class="time">${time}</p>
+            <p class="title">${icon} ${event.title}</p>
+            <p class="time">${isBirthday ? 'Ganztägig' : time}</p>
         </div>
     </div>
     `;
@@ -279,7 +321,7 @@ if (!window.openCreateEventModal) {
                 </div>
                 <div class="flex justify-end gap-3 pt-6 border-t border-border-glass">
                     <button type="button" class="btn-secondary" data-action="close-modal">Abbrechen</button>
-                    <button type="submit" id="create-event-submit" class="cta-primary-glow">
+                    <button type="button" id="create-event-submit" class="cta-primary-glow">
                         <span class="btn-text">Termin speichern</span>
                     </button>
                 </div>
@@ -289,9 +331,17 @@ if (!window.openCreateEventModal) {
         openModal(Card(modalContent, { variant: 'premium', className: 'max-w-lg w-full' }), modalId);
         if (typeof lucide !== 'undefined') lucide.createIcons();
         
-        // Korrigierte Zuweisung des Event-Handlers
-        document.getElementById('create-event-form').addEventListener('submit', (e) => {
-            window.handleEventSubmit(e);
+        // Korrigierte Zuweisung des Event-Handlers direkt an den Button
+        document.getElementById('create-event-submit').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Manuelles Validieren und Aufrufen der Speicherfunktion
+            const form = document.getElementById('create-event-form');
+            if (form.checkValidity()) {
+                window.handleEventSubmit(e);
+            } else {
+                form.reportValidity(); // Zeigt dem Benutzer an, welche Felder fehlen
+            }
         });
     }
 }

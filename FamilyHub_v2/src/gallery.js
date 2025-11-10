@@ -217,6 +217,16 @@ window.handleGalleryUpload = function(event) {
             <h2 class="text-xl font-bold text-gradient mb-6">Dateien hochladen</h2>
             <div id="upload-preview-container" class="grid grid-cols-3 gap-2 mb-4"></div>
             <textarea id="upload-description" class="form-input" rows="3" placeholder="Beschreibung (optional)"></textarea>
+            
+            <!-- NEU: Feed-Option -->
+            <div class="flex items-center gap-3 p-3 rounded-lg bg-white/5 mt-4">
+                <input type="checkbox" id="gallery-post-to-feed" class="form-checkbox" checked>
+                <label for="gallery-post-to-feed" class="text-sm text-white cursor-pointer">
+                    <i data-lucide="megaphone" class="w-4 h-4 inline mr-1 text-accent-glow"></i>
+                    Diese Fotos im Feed posten
+                </label>
+            </div>
+            
             <div class="flex justify-end gap-3 pt-4 border-t border-border-glass">
                 <button type="button" class="btn-secondary" data-action="close-modal">Abbrechen</button>
                 <button type="button" id="upload-submit-btn" class="btn-premium" onclick="window.startUpload()">
@@ -263,6 +273,7 @@ window.startUpload = async function() {
 
         const files = window.uploadFiles;
         const description = document.getElementById('upload-description').value.trim();
+        const shouldPostToFeed = document.getElementById('gallery-post-to-feed')?.checked || false; // NEU
         const uploadedImageUrls = []; // Speichert die URLs der neuen Bilder
 
         const uploadPromises = files.map(async (file) => {
@@ -292,11 +303,10 @@ window.startUpload = async function() {
         closeModal('template-upload-modal');
         showNotification(`${files.length} Datei(en) erfolgreich hochgeladen!`, 'success');
 
-        // --- NEU: Feed-Post erstellen ---
+        // Feed-Post erstellen (nur wenn gewünscht)
         if (uploadedImageUrls.length > 0) {
-            await createGalleryFeedPost(uploadedImageUrls, currentUser, currentFamilyId);
+            await createGalleryFeedPost(uploadedImageUrls, currentUser, currentFamilyId, shouldPostToFeed);
         }
-        // --- ENDE ---
 
     } catch (error) {
         console.error('Upload error:', error);
@@ -310,42 +320,32 @@ window.startUpload = async function() {
 }
 
 /**
- * Erstellt einen Feed-Post, wenn dies der erste Upload in einem neuen Monat ist.
+ * Erstellt einen Feed-Post für die hochgeladenen Galerie-Bilder.
  */
-async function createGalleryFeedPost(uploadedImageUrls, currentUser, currentFamilyId) {
+async function createGalleryFeedPost(uploadedImageUrls, currentUser, currentFamilyId, shouldPostToFeed = true) {
+    if (!shouldPostToFeed) return;
+    
     try {
         const formatter = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
         const albumTitle = `Neue Fotos im ${formatter.format(new Date())}`;
 
-        // 1. Prüfen, ob für diesen Titel bereits ein Post existiert
         const postsRef = collection(db, 'families', currentFamilyId, 'posts');
-        const q = query(postsRef, 
-            where('type', '==', 'gallery'),
-            where('galleryTitle', '==', albumTitle)
-        );
         
-        const existingPosts = await getDocs(q);
+        await addDoc(postsRef, {
+            type: 'gallery',
+            galleryTitle: albumTitle,
+            thumbnailUrls: uploadedImageUrls.slice(0, 4),
+            authorName: "FamilyHub Galerie",
+            authorId: 'system',
+            authorAvatar: 'https://ui-avatars.com/api/?name=Hub&background=A04668&color=F2F4F3&bold=true',
+            createdAt: serverTimestamp(),
+            participants: null
+        });
         
-        if (existingPosts.empty) {
-            // 2. Keiner existiert -> Neuen Post erstellen
-            await addDoc(postsRef, {
-                type: 'gallery',
-                galleryTitle: albumTitle,
-                thumbnailUrls: uploadedImageUrls.slice(0, 4), // Nimm die ersten 4 Bilder
-                authorName: "FamilyHub Galerie",
-                authorId: 'system',
-                authorAvatar: 'https://ui-avatars.com/api/?name=Hub&background=A04668&color=F2F4F3&bold=true',
-                createdAt: serverTimestamp(),
-                participants: null // Öffentlich für alle
-            });
-            showNotification("Neues Album im Feed geteilt!", "success");
-        } else {
-            // 3. Post existiert bereits -> Thumbnails aktualisieren (optional, für später)
-            console.log(`Galerie-Post für '${albumTitle}' existiert bereits. Überspringe Erstellung.`);
-        }
+        showNotification("Fotos im Feed geteilt!", "success");
+        
     } catch (error) {
         console.error("Fehler beim Erstellen des Galerie-Feed-Posts:", error);
-        // Dies ist ein Non-Blocking-Error, der Upload war trotzdem erfolgreich.
     }
 }
 // === ENDE DER INTELLIGENTEN LOGIK ===

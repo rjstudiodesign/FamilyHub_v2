@@ -26,7 +26,8 @@ import {
   arrayUnion,
   arrayRemove,
   limit,
-  startAfter
+  startAfter,
+  Timestamp
 } from "firebase/firestore";
 import { 
   getAuth, 
@@ -73,7 +74,7 @@ export {
   // Firestore
   collection, query, onSnapshot, addDoc, doc, deleteDoc, serverTimestamp,
   orderBy, runTransaction, getDocs, where, updateDoc, getDoc, setDoc,
-  writeBatch, increment, arrayUnion, arrayRemove, limit, startAfter,
+  writeBatch, increment, arrayUnion, arrayRemove, limit, startAfter, Timestamp,
   // Storage
   ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject,
   // Auth
