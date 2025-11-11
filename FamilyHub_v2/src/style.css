@@ -21,6 +21,9 @@
     --text-secondary: #9ca3af;
     --text-tertiary: #6b7280;
     --accent-glow: #A04668;
+    --accent-glow-rgb: 160 70 104; /* RGB values for opacity support */
+    --primary-rose: #A04668; /* Same as accent-glow */
+    --primary-rose-rgb: 160 70 104; /* RGB values for opacity support */
     --glass-bg: rgba(10, 9, 8, 0.75);
     --border-glass: rgba(242, 244, 243, 0.1);
     --shadow-glow: 0 0 15px rgba(160, 70, 104, 0.4);

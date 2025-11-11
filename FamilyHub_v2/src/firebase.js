@@ -23,7 +23,7 @@ import {
   arrayUnion,
   arrayRemove
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "firebase/auth";
 import {
   getStorage,
   ref,
@@ -57,5 +57,7 @@ export {
   orderBy, runTransaction, getDocs, where, updateDoc, getDoc, setDoc,
   writeBatch, increment, arrayUnion, arrayRemove,
   // Storage
-  ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject
+  ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject,
+  // Auth
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut
 };

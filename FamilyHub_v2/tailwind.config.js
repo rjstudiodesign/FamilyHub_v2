@@ -14,9 +14,11 @@ module.exports = {
         'text-main': 'var(--text-main)',
         'text-secondary': 'var(--text-secondary)',
         'text-tertiary': 'var(--text-tertiary)',
-        'accent-glow': 'var(--accent-glow)',
-        'accent-primary-rose': 'var(--accent-primary-rose)', // HINZUGEFÜGT
+        'accent-glow': 'rgb(var(--accent-glow-rgb) / <alpha-value>)',
+        'accent-primary-rose': 'rgb(var(--primary-rose-rgb) / <alpha-value>)',
+        'primary-rose': 'rgb(var(--primary-rose-rgb) / <alpha-value>)',
         'glass-bg': 'var(--glass-bg)',
+        'background-glass': 'var(--glass-bg)', // Added for bg-background-glass class
         'border-glass': 'var(--border-glass)',
       },
       boxShadow: {
