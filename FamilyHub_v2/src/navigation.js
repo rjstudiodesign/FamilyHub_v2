@@ -13,6 +13,7 @@ import { renderChallenges } from './challenges.js'; // KORRIGIERT: Echter Import
 import { renderFinanzen } from './finanzen.js'; // NEU
 import { renderChronik } from './chronik.js'; // NEU
 import { renderLogin } from './login.js'; // NEU
+import { renderFamilyManagement } from './familyManagement.js'; // NEU: Erweiterte Familienverwaltung
 
 // --- 2. ZENTRALE ROUTEN-DEFINITION (Single Source of Truth) ---
 const routes = {
@@ -81,6 +82,18 @@ const routes = {
         init: renderChronik,
         title: 'Chronik',
         icon: 'history'
+    },
+    'family-management': { // NEU: Erweiterte Familienverwaltung
+        templateId: 'template-family-management',
+        init: renderFamilyManagement,
+        title: 'Familienverwaltung',
+        icon: 'users-cog'
+    },
+    'menu': { // NEU: Mehr/Menu page
+        templateId: 'template-menu',
+        init: null, // No initialization needed, just shows the template
+        title: 'Mehr',
+        icon: 'layout-grid'
     }
 };
 
