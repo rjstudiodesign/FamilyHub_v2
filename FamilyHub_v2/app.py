@@ -1,9 +1,12 @@
 import os
+# Optional: python-dotenv, nur wenn verfügbar
+# Use a dynamic import to avoid static analyzers complaining about unresolved imports.
 try:
-    # Optional: python-dotenv, nur wenn verfügbar
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
+    import importlib
+    dotenv = importlib.import_module("dotenv")
+    if hasattr(dotenv, "load_dotenv"):
+        dotenv.load_dotenv()
+except ModuleNotFoundError:
     # Wenn python-dotenv nicht installiert ist, können die Umgebungsvariablen trotzdem von der Umgebung bereitgestellt werden.
     pass
 

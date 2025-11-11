@@ -22,6 +22,6 @@ export default defineConfig({
     },
   },
 });
-  // Entferne jegliche Verwendung von tailwindcss() im plugins-Array!
-  // Tailwind wird über PostCSS konfiguriert (siehe postcss.config.js).
-});
+
+// Entferne jegliche Verwendung von tailwindcss() im plugins-Array!
+// Tailwind wird über PostCSS konfiguriert (siehe postcss.config.js).
