@@ -2,6 +2,7 @@
   "name": "familyhub",
   "version": "2.0.0",
   "description": "FamilyHub – Moderne Familienorganisation",
+  "type": "module",
   "main": "src/main.js",
   "scripts": {
     "dev": "vite",

@@ -33,6 +33,12 @@ export function renderChallenges(listeners) {
     }
     
     renderActiveChallenges(listeners);
+
+    // --- NEU: Event-Listener für den "Erstellen"-Button ---
+    const createChallengeBtn = document.getElementById('fab-create-challenge');
+    if (createChallengeBtn) {
+        createChallengeBtn.addEventListener('click', () => window.openCreateChallengeModal());
+    }
 }
 
 /**
@@ -221,7 +227,7 @@ if (!window.updateChallengeProgress) {
         render(modalHTML, document.getElementById('modal-container'));
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        document.getElementById('update-progress-form').onsubmit = async (e) => {
+        document.getElementById('update-progress-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const value = parseFloat(document.getElementById('progress-value').value);
             if (isNaN(value)) return showNotification("Ungültiger Wert", "warning");
@@ -240,7 +246,7 @@ if (!window.updateChallengeProgress) {
                 console.error("Error updating progress:", error);
                 showNotification("Fehler beim Speichern", "error");
             }
-        };
+        });
     };
 }
 
@@ -291,7 +297,9 @@ if (!window.openCreateChallengeModal) {
         render(modalHTML, document.getElementById('modal-container'));
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        document.getElementById('create-challenge-form').onsubmit = window.handleCreateChallenge;
+        document.getElementById('create-challenge-form').addEventListener('submit', (e) => {
+            window.handleCreateChallenge(e);
+        });
     };
 }
 

@@ -10,14 +10,15 @@ module.exports = {
       // Diese Namen (z.B. 'primary-bg') werden zu Tailwind-Klassen (z.B. bg-primary-bg).
       // Sie müssen auf die CSS-Variablen verweisen, die in input.css definiert sind.
       colors: {
-        'primary-bg': 'var(--primary-bg)',
-        'text-main': 'var(--text-main)',
-        'text-secondary': 'var(--text-secondary)',
-        'text-tertiary': 'var(--text-tertiary)',
-        'accent-glow': 'var(--accent-glow)',
-        'accent-primary-rose': 'var(--accent-primary-rose)', // HINZUGEFÜGT
-        'glass-bg': 'var(--glass-bg)',
-        'border-glass': 'var(--border-glass)',
+        'primary-bg': 'rgb(var(--primary-bg) / <alpha-value>)',
+        'text-main': 'rgb(var(--text-main) / <alpha-value>)',
+        'text-secondary': 'rgb(var(--text-secondary) / <alpha-value>)',
+        'text-tertiary': 'rgb(var(--text-tertiary) / <alpha-value>)',
+        'accent-glow': 'rgb(var(--accent-glow) / <alpha-value>)',
+        'primary-rose': 'rgb(var(--accent-glow) / <alpha-value>)',
+        'accent-primary-rose': 'rgb(var(--accent-glow) / <alpha-value>)',
+        'glass-bg': 'rgb(var(--glass-bg) / <alpha-value>)',
+        'border-glass': 'rgb(var(--border-glass) / <alpha-value>)',
       },
       boxShadow: {
         'glow': 'var(--shadow-glow)', // Korrigiert von 'glow-rose'

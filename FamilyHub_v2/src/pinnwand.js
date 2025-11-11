@@ -2,9 +2,9 @@
 // KORRIGIERTE VERSION (Integriert mit ui.js)
 
 import { 
-    db, collection, query, onSnapshot, updateDoc, 
-    doc, orderBy, addDoc, serverTimestamp, 
-    increment // NEU: Für die Punktevergabe
+    db, storage, collection, query, onSnapshot, updateDoc, 
+    doc, orderBy, addDoc, serverTimestamp, getDoc,
+    increment, ref, uploadBytesResumable, getDownloadURL, Timestamp
 } from './firebase.js';
 import { getCurrentUser } from './auth.js';
 import { openModal, closeModal, showNotification, showButtonSpinner, hideButtonSpinner } from './ui.js';
@@ -130,20 +130,76 @@ function createTaskElement(card) {
     cardEl.draggable = true;
     cardEl.id = `task-${card.id}`;
     cardEl.dataset.cardId = card.id;
+    
+    // NEU: Attachment/Cover-Bild
+    let coverImage = '';
+    let attachmentIcon = '';
+    
+    if (card.attachment) {
+        if (card.attachment.type && card.attachment.type.startsWith('image/')) {
+            // Cover-Bild für Bild-Anhänge
+            coverImage = `
+                <div class="task-cover-image mb-3 -mx-4 -mt-4 rounded-t-lg overflow-hidden">
+                    <img src="${card.attachment.url}" 
+                         alt="${card.attachment.name || 'Anhang'}" 
+                         class="w-full h-32 object-cover cursor-pointer"
+                         onclick="window.openImageModal('${card.attachment.url}')"
+                         loading="lazy">
+                </div>
+            `;
+        } else {
+            // Paperclip-Icon für andere Dokumente
+            attachmentIcon = `
+                <a href="${card.attachment.url}" target="_blank" 
+                   class="inline-flex items-center gap-1 text-xs text-accent-glow hover:underline mt-2"
+                   title="${card.attachment.name || 'Anhang'}">
+                    <i data-lucide="paperclip" class="w-4 h-4"></i>
+                    <span class="truncate max-w-[120px]">${card.attachment.name || 'Dokument'}</span>
+                </a>
+            `;
+        }
+    }
+    
+    // NEU: Fälligkeitsdatum
+    let dueDateBadge = '';
+    if (card.dueDate) {
+        const dueDate = card.dueDate.toDate ? card.dueDate.toDate() : new Date(card.dueDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isOverdue = dueDate < today && card.status !== 'done';
+        
+        const dateStr = dueDate.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+        const dueDateClass = isOverdue ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-white/10 text-secondary';
+        
+        dueDateBadge = `
+            <div class="flex items-center gap-1 text-xs px-2 py-1 rounded border ${dueDateClass} mt-2">
+                <i data-lucide="calendar" class="w-3 h-3"></i>
+                <span>${dateStr}</span>
+            </div>
+        `;
+    }
+    
     cardEl.innerHTML = `
-        <span class="flex-1">${card.text}</span>
-        <button class="icon-button-ghost" 
-                title="Termin aus Aufgabe erstellen" 
-                onclick="window.openCreateEventModal(undefined, '${escapeHTML(card.text)}')"
-        >
-          <i data-lucide="calendar-plus" class="w-5 h-5"></i>
-        </button>
-        <button class="icon-button-ghost" 
-                title="Aufgabe diskutieren" 
-                onclick="window.startContextChat('pinnwandTask', '${card.id}', '${escapeHTML(card.text)}')"
-        >
-          <i data-lucide="message-circle" class="w-5 h-5"></i>
-        </button>
+        ${coverImage}
+        <div class="flex flex-col gap-2">
+            <span class="flex-1">${card.text}</span>
+            ${attachmentIcon}
+            ${dueDateBadge}
+            <div class="flex gap-1 mt-2 pt-2 border-t border-white/10">
+                <button class="icon-button-ghost flex-1" 
+                        title="Termin aus Aufgabe erstellen" 
+                        onclick="window.openCreateEventModal(undefined, '${escapeHTML(card.text)}')"
+                >
+                  <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                </button>
+                <button class="icon-button-ghost flex-1" 
+                        title="Aufgabe diskutieren" 
+                        onclick="window.startContextChat('pinnwandTask', '${card.id}', '${escapeHTML(card.text)}')"
+                >
+                  <i data-lucide="message-circle" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
     `;
     cardEl.addEventListener('dragstart', onDragStart);
     cardEl.addEventListener('dragend', onDragEnd);
@@ -179,6 +235,7 @@ if (!window.openCreateTaskModal) {
                 <label for="task-text" class="form-label text-sm text-secondary mb-1 block">Was soll erledigt werden?</label>
                 <textarea id="task-text" name="task-text" class="form-input" rows="3" required></textarea>
             </div>
+            
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label for="task-assignedTo" class="form-label text-sm text-secondary mb-1 block">Zuweisen an:</label>
@@ -192,6 +249,35 @@ if (!window.openCreateTaskModal) {
                     <input type="number" id="task-points" class="form-input" value="0" min="0" step="10">
                 </div>
             </div>
+            
+            <!-- NEU: Fälligkeitsdatum -->
+            <div>
+                <label for="task-due-date" class="form-label text-sm text-secondary mb-1 block">
+                    <i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i>
+                    Fälligkeitsdatum (optional)
+                </label>
+                <input type="date" id="task-due-date" class="form-input">
+            </div>
+            
+            <!-- NEU: Datei-Anhang -->
+            <div>
+                <label for="task-attachment" class="form-label text-sm text-secondary mb-1 block">
+                    <i data-lucide="paperclip" class="w-4 h-4 inline mr-1"></i>
+                    Anhang (Bild oder Dokument, optional)
+                </label>
+                <input type="file" id="task-attachment" class="form-input" accept="image/*,.pdf,.doc,.docx">
+                <p class="text-xs text-secondary mt-1">Bilder werden als Cover angezeigt, Dokumente als Link.</p>
+            </div>
+            
+            <!-- NEU: Feed-Option -->
+            <div class="flex items-center gap-3 p-3 rounded-lg bg-white/5">
+                <input type="checkbox" id="task-post-to-feed" class="form-checkbox">
+                <label for="task-post-to-feed" class="text-sm text-white cursor-pointer">
+                    <i data-lucide="megaphone" class="w-4 h-4 inline mr-1 text-accent-glow"></i>
+                    Diese Aufgabe im Feed posten
+                </label>
+            </div>
+            
             <div class="flex justify-end gap-3 pt-6 border-t border-border-glass">
                 <button type="button" class="btn-secondary" data-action="close-modal">Abbrechen</button>
                 <button type="submit" id="create-task-submit" class="cta-primary-glow">
@@ -205,6 +291,7 @@ if (!window.openCreateTaskModal) {
     
     // Zuweisung standardmäßig auf den Ersteller setzen
     document.getElementById('task-assignedTo').value = currentUser.uid;
+    
     document.getElementById('create-task-form').onsubmit = async (e) => {
         e.preventDefault();
         const submitBtn = document.getElementById('create-task-submit');
@@ -213,26 +300,114 @@ if (!window.openCreateTaskModal) {
         const text = document.getElementById('task-text').value.trim();
         const assignedTo = document.getElementById('task-assignedTo').value || null;
         const points = parseInt(document.getElementById('task-points').value) || 0;
-        if (text) {
-            try {
-                const { currentFamilyId } = getCurrentUser();
-                await addDoc(collection(db, 'families', currentFamilyId, 'pinnwand'), {
-                    text: text,
-                    status: status,
-                    assignedTo: assignedTo, // NEU
-                    points: points,         // NEU
+        const dueDateInput = document.getElementById('task-due-date').value;
+        const attachmentFile = document.getElementById('task-attachment').files[0];
+        const postToFeed = document.getElementById('task-post-to-feed').checked;
+        
+        if (!text) {
+            hideButtonSpinner(submitBtn);
+            return;
+        }
+        
+        try {
+            const { currentFamilyId, currentUserData } = getCurrentUser();
+            
+            // NEU: Fälligkeitsdatum konvertieren
+            let dueDate = null;
+            if (dueDateInput) {
+                const dateObj = new Date(dueDateInput);
+                dateObj.setHours(23, 59, 59, 999); // Ende des Tages
+                dueDate = Timestamp.fromDate(dateObj);
+            }
+            
+            // NEU: Anhang hochladen (falls vorhanden)
+            let attachment = null;
+            if (attachmentFile) {
+                showNotification("Anhang wird hochgeladen...", "info");
+                
+                const storageRef = ref(storage, `tasks/${currentFamilyId}/${Date.now()}_${attachmentFile.name}`);
+                const uploadTask = uploadBytesResumable(storageRef, attachmentFile);
+                
+                // Warten auf Upload-Abschluss
+                await new Promise((resolve, reject) => {
+                    uploadTask.on('state_changed',
+                        (snapshot) => {
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            console.log(`Upload: ${progress}% fertig`);
+                        },
+                        (error) => {
+                            console.error("Upload-Fehler:", error);
+                            reject(error);
+                        },
+                        async () => {
+                            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                            attachment = {
+                                url: downloadURL,
+                                name: attachmentFile.name,
+                                type: attachmentFile.type,
+                                size: attachmentFile.size
+                            };
+                            resolve();
+                        }
+                    );
+                });
+            }
+            
+            // Task-Daten zusammenstellen
+            const taskData = {
+                text: text,
+                status: status,
+                assignedTo: assignedTo,
+                points: points,
+                createdAt: serverTimestamp()
+            };
+            
+            // Optional: Fälligkeitsdatum hinzufügen
+            if (dueDate) {
+                taskData.dueDate = dueDate;
+            }
+            
+            // Optional: Anhang hinzufügen
+            if (attachment) {
+                taskData.attachment = attachment;
+            }
+            
+            // 1. Aufgabe in Pinnwand erstellen
+            const taskRef = await addDoc(collection(db, 'families', currentFamilyId, 'pinnwand'), taskData);
+            
+            // 2. NEU: Optional im Feed posten
+            if (postToFeed) {
+                const assignedMemberName = assignedTo && membersData[assignedTo] 
+                    ? membersData[assignedTo].name 
+                    : 'Niemand';
+                
+                await addDoc(collection(db, 'families', currentFamilyId, 'posts'), {
+                    type: 'task_repost',
+                    taskId: taskRef.id,
+                    taskText: text,
+                    taskStatus: status,
+                    assignedTo: assignedTo,
+                    assignedToName: assignedMemberName,
+                    dueDate: dueDate,
+                    attachment: attachment,
+                    points: points,
+                    authorId: currentUser.uid,
+                    authorName: currentUserData.name || 'Unbekannt',
+                    authorAvatar: currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUserData.name || 'U')}`,
                     createdAt: serverTimestamp()
                 });
-                closeModal(modalId);
+                
+                showNotification("Aufgabe erstellt und im Feed geteilt!", "success");
+            } else {
                 showNotification("Aufgabe erstellt!", "success");
-            } catch (err) {
-                showNotification('Fehler beim Anlegen der Aufgabe.', 'error');
-                console.error(err);
-            } finally {
-                hideButtonSpinner(submitBtn);
             }
-        } else {
-              hideButtonSpinner(submitBtn);
+            
+            closeModal(modalId);
+        } catch (err) {
+            showNotification('Fehler beim Anlegen der Aufgabe.', 'error');
+            console.error(err);
+        } finally {
+            hideButtonSpinner(submitBtn);
         }
     };
 }

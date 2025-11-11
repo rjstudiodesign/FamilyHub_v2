@@ -68,6 +68,12 @@ export function renderWishlist(listeners) {
         showNotification("Fehler beim Laden der Wunschliste", "error");
     });
 
+    // --- NEU: Event-Listener für den "Erstellen"-Button ---
+    const createWishBtn = document.getElementById('fab-create-wish');
+    if (createWishBtn) {
+        createWishBtn.addEventListener('click', () => window.openAddWishModal());
+    }
+
     // 3. Globale Fenster-Funktionen für diese Seite
     window.filterWishlist = (btn, uid) => {
         currentWishlistFilter = uid;
@@ -136,7 +142,9 @@ export function renderWishlist(listeners) {
         openModal(modalContent, modalId);
 
         const form = document.getElementById('create-wish-form');
-        form.onsubmit = window.handleWishSubmit;
+        form.addEventListener('submit', (e) => {
+            window.handleWishSubmit(e);
+        });
     };
 
     // --- NEU: Vereinfachter Submit ---

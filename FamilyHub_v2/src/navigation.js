@@ -9,25 +9,39 @@ import { renderGallery } from './gallery.js';
 import { renderSettings } from './settings.js';
 import { renderWishlist } from './wishlist.js';
 import { renderChat } from './chat.js';
-import { renderChallenges } from './challenges.js'; // KORRIGIERT: Echter Import
-import { renderFinanzen } from './finanzen.js'; // NEU
-import { renderChronik } from './chronik.js'; // NEU
-import { renderLogin } from './login.js'; // NEU
+import { renderChallenges } from './challenges.js';
+import { renderFinanzen } from './finanzen.js';
+import { renderChronik } from './chronik.js';
+import { renderLogin } from './login.js';
+import { renderTickets } from './tickets.js';
+import { renderStammbaum } from './stammbaum.js';
+import { renderRezepte } from './rezepte.js';
+import { renderDokumente } from './dokumente.js';
+import { renderCommunity } from './community.js';
+import { renderZeitkapsel } from './zeitkapsel.js';
+import { renderHobbys } from './hobbys.js';
+import { createLogger } from './utils/logger.js';
+
+const logger = createLogger('Navigation');
 
 // --- 2. ZENTRALE ROUTEN-DEFINITION (Single Source of Truth) ---
+import { renderWelcome } from './welcome.js';
+
 const routes = {
-	'login': { 
-		templateId: 'template-login',
-		init: renderLogin, // KORREKTUR: renderLogin muss hier aufgerufen werden
-		title: 'Anmelden',
-		icon: 'log-in'
-	},
-	'feed': {
-		templateId: 'template-feed',
-		init: renderFeed,
-		title: 'Feed',
-		icon: 'home'
-	},
+    'login': {
+        templateId: 'template-login',
+        init: renderLogin
+    },
+    'welcome': {
+        templateId: 'template-welcome',
+        init: renderWelcome
+    },
+    'feed': {
+        templateId: 'template-feed',
+        init: renderFeed,
+        title: 'Feed',
+        icon: 'home'
+    },
 	'chat': {
 		templateId: 'template-chat',
 		init: renderChat,
@@ -58,6 +72,14 @@ const routes = {
 		title: 'Challenges',
 		icon: 'award'
 	},
+	// --- HIER EINFÜGEN ---
+	'menu': {
+		templateId: 'template-menu',
+		init: null, // 'menu' hat keine eigene Logik, nur Links
+		title: 'App-Übersicht',
+		icon: 'layout-grid'
+	},
+	// --- ENDE ---
 	'settings': {
 		templateId: 'template-settings',
 		init: renderSettings,
@@ -81,6 +103,48 @@ const routes = {
         init: renderChronik,
         title: 'Chronik',
         icon: 'history'
+    },
+    'tickets': {
+        templateId: 'template-tickets',
+        init: renderTickets,
+        title: 'Tickets',
+        icon: 'ticket'
+    },
+    'stammbaum': {
+        templateId: 'template-stammbaum',
+        init: renderStammbaum,
+        title: 'Stammbaum',
+        icon: 'network'
+    },
+    'rezepte': {
+        templateId: 'template-rezepte',
+        init: renderRezepte,
+        title: 'Rezepte',
+        icon: 'chef-hat'
+    },
+    'dokumente': {
+        templateId: 'template-dokumente',
+        init: renderDokumente,
+        title: 'Dokumente',
+        icon: 'file-text'
+    },
+    'community': {
+        templateId: 'template-community',
+        init: renderCommunity,
+        title: 'Community',
+        icon: 'building-2'
+    },
+    'zeitkapsel': {
+        templateId: 'template-zeitkapsel',
+        init: renderZeitkapsel,
+        title: 'Zeitkapsel',
+        icon: 'clock'
+    },
+    'hobbys': {
+        templateId: 'template-hobbys',
+        init: renderHobbys,
+        title: 'Hobbys',
+        icon: 'gamepad-2'
     }
 };
 
@@ -93,13 +157,16 @@ const pageListeners = {}; // Zentrales Listener-Objekt (unverändert)
  * Bereinigt alle aktiven Echtzeit-Listener der vorherigen Seite.
  */
 function cleanupListeners() {
+		const count = Object.keys(pageListeners).length;
 		Object.keys(pageListeners).forEach(key => {
 				if (typeof pageListeners[key] === 'function') {
-						pageListeners[key](); // Ruft die unsubscribe-Funktion auf
+						pageListeners[key]();
 						pageListeners[key] = null;
-						console.log(`Listener für '${key}' wurde bereinigt.`);
 				}
 		});
+		if (count > 0) {
+			logger.debug('Cleaned up listeners', { count });
+		}
 }
 
 /**
@@ -107,12 +174,11 @@ function cleanupListeners() {
  */
 export async function navigateTo(pageId, params = {}) {
 	// 1. Standardseite definieren
-	// (Wenn 'login' angefordert wird, aber die Route fehlt, gehe zu 'feed' - 
-	// ABER: 'login' ist jetzt definiert!)
 	const pageKey = routes[pageId] ? pageId : 'feed';
 
 	// 2. Doppelte Navigation verhindern
 	if (lastNavigatedPage === pageKey) {
+		logger.debug('Navigation blocked - already on page', { pageKey });
 		return;
 	}
 
@@ -123,35 +189,33 @@ export async function navigateTo(pageId, params = {}) {
 	// 4. Route-Definition abrufen
 	const route = routes[pageKey];
 	if (!route) {
-		console.error(`Keine Route für '${pageKey}' gefunden.`);
-		return navigateTo('feed'); // Fallback zum Feed
+		logger.error('Route not found', { pageKey });
+		return navigateTo('feed');
 	}
 
 	try {
-		// 5. UI sofort aktualisieren (Header & Nav-Leiste)
-		// (Login-Seite hat keinen Header/Nav, aber das wird von main.js durch
-		// Ausblenden der 'app-shell' gesteuert)
+		logger.info('Navigating to page', { pageKey });
+
+		// 5. UI sofort aktualisieren
 		updateHeader(route.title, route.icon);
 		updateNavState(pageKey);
 
 		// 6. Template laden
 		const template = document.getElementById(route.templateId);
 		if (!template || template.tagName !== 'TEMPLATE') {
-			throw new Error(`Template-Tag #${route.templateId} nicht gefunden.`);
+			throw new Error(`Template #${route.templateId} not found`);
 		}
 
 		// 7. Inhalt im richtigen Container rendern
         const targetContainer = pageKey === 'login' ? authContainer : mainContent;
-        if (targetContainer) {
-		    targetContainer.innerHTML = template.innerHTML;
-        } else {
-            console.error(`Target container for page '${pageKey}' not found.`);
-            return;
+        if (!targetContainer) {
+            throw new Error(`Container for page '${pageKey}' not found`);
         }
+		    
+	    targetContainer.innerHTML = template.innerHTML;
 
 		// 8. Seiten-spezifische Logik aufrufen
 		if (typeof route.init === 'function') {
-			// WICHTIG: Den Zielcontainer an die init-Funktion übergeben
 			route.init(pageListeners, targetContainer, params); 
 		}
 
@@ -159,10 +223,19 @@ export async function navigateTo(pageId, params = {}) {
 		if (typeof lucide !== 'undefined') {
 			lucide.createIcons();
 		}
+		
+		logger.debug('Navigation completed', { pageKey });
 	} catch (error) {
-		console.error(`Fehler beim Navigieren zu ${pageKey}:`, error);
-		if(mainContent) mainContent.innerHTML = `<p>Seite '${pageKey}' konnte nicht geladen werden.</p>`;
-		lastNavigatedPage = null; // Navigation zurücksetzen
+		logger.error('Navigation failed', error);
+		if(mainContent) {
+			mainContent.innerHTML = `
+				<div class="text-center p-8">
+					<p class="text-red-400">Seite '${pageKey}' konnte nicht geladen werden.</p>
+					<button onclick="location.reload()" class="cta-primary-glow mt-4">Neu laden</button>
+				</div>
+			`;
+		}
+		lastNavigatedPage = null;
 	}
 }
 
@@ -173,9 +246,9 @@ function updateHeader(title, icon) {
 	const headerTitle = document.getElementById('header-title');
 	const headerIcon = document.getElementById('header-icon');
 
-	if (headerTitle) headerTitle.textContent = title;
+	if (headerTitle) headerTitle.textContent = title || ''; // Fallback auf leeren String
   
-	if (headerIcon && typeof lucide !== 'undefined') {
+	if (headerIcon && icon && typeof lucide !== 'undefined') { // Prüft, ob icon existiert
 		headerIcon.setAttribute('data-lucide', icon);
 		lucide.createIcons({
 			nodes: [headerIcon]
