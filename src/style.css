@@ -1,0 +1,5 @@
+@layer utilities {
+  .bg-accent-glow\/20 {
+    background-color: rgba(160, 70, 104, 0.2);
+  }
+}
