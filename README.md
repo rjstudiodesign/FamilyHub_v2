@@ -1,6 +1,5 @@
 # FamilyHub v2.0
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/3d924148-9f43-4cea-b3ad-9dec49aa4ba0/deploy-status)](https://app.netlify.com/projects/familyhubrjstudio17/deploys)
 
 Eine moderne, private Social-Media-Plattform für Familien. Gebaut mit Vanilla JavaScript, Tailwind CSS und Firebase.
 
@@ -145,13 +144,6 @@ npm run build
 ```
 
 Build-Artefakte werden in `dist/` erstellt.
-
-### Netlify Deployment
-
-```bash
-# Automatisch bei Git Push auf main-Branch
-# Konfiguration in netlify.toml
-```
 
 ### Firebase Functions Deployment
 
