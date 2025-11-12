@@ -20,6 +20,7 @@ import { renderDokumente } from './dokumente.js';
 import { renderCommunity } from './community.js';
 import { renderZeitkapsel } from './zeitkapsel.js';
 import { renderHobbys } from './hobbys.js';
+import { renderFamilyManagement } from './family-management.js';
 import { createLogger } from './utils/logger.js';
 
 const logger = createLogger('Navigation');
@@ -145,6 +146,12 @@ const routes = {
         init: renderHobbys,
         title: 'Hobbys',
         icon: 'gamepad-2'
+    },
+    'family-management': {
+        templateId: 'template-family-management',
+        init: renderFamilyManagement,
+        title: 'Familienverwaltung',
+        icon: 'users'
     }
 };
 

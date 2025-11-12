@@ -895,6 +895,12 @@
           </div>
           <span class="app-dashboard-label">Einstellungen</span>
         </button>
+        <button class="app-dashboard-item" data-page="family-management">
+          <div class="app-dashboard-icon bg-emerald-500/20 text-emerald-400">
+            <i data-lucide="users"></i>
+          </div>
+          <span class="app-dashboard-label">Familienverwaltung</span>
+        </button>
         <button class="app-dashboard-item" data-page="gallery">
           <div class="app-dashboard-icon bg-pink-500/20 text-pink-400">
             <i data-lucide="image"></i>
@@ -1097,6 +1103,44 @@
             <div class="spinner"></div>
           </div>
         </div>
+      </div>
+    </template>
+
+    <template id="template-family-management">
+      <div class="flex flex-col gap-6">
+        <!-- Page Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h2 class="text-3xl font-bold text-gradient mb-2">Familienverwaltung</h2>
+            <p class="text-text-secondary text-sm">
+              Verwalte deine Großfamilie, Mitglieder und erweiterte Einstellungen
+            </p>
+          </div>
+        </div>
+
+        <!-- Family Selector -->
+        <div id="family-selector-container">
+          <div class="flex justify-center items-center p-8">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- Family Details -->
+        <div id="family-details-container">
+          <div class="flex justify-center items-center p-8">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- Family Members List -->
+        <div id="family-members-list-container">
+          <div class="flex justify-center items-center p-8">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- Hidden container for JS initialization -->
+        <div id="family-mgmt-container" class="hidden"></div>
       </div>
     </template>
 
