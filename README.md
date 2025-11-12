@@ -1,5 +1,7 @@
 # FamilyHub v2.0
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/3d924148-9f43-4cea-b3ad-9dec49aa4ba0/deploy-status)](https://app.netlify.com/projects/familyhubrjstudio17/deploys)
+
 Eine moderne, private Social-Media-Plattform für Familien. Gebaut mit Vanilla JavaScript, Tailwind CSS und Firebase.
 
 ## 🚀 Features
@@ -12,6 +14,12 @@ Eine moderne, private Social-Media-Plattform für Familien. Gebaut mit Vanilla J
 - **Challenges**: Gamification mit Leaderboard & Punktesystem
 - **Galerie**: Foto-/Video-Upload mit Firebase Storage
 - **Einstellungen**: Profil-, Familien- und Zielverwaltung
+- **🆕 Familienverwaltung**: Spezialisierte Anwendung für die Verwaltung von Großfamilien
+  - Multi-Familien-Support mit Wechselfunktion
+  - Erweiterte Rollenverwaltung (Admin/Mitglied)
+  - Kind-Profile mit Eltern-Zuordnung
+  - Umfassende Familieneinstellungen
+  - Echtzeit-Synchronisation aller Änderungen
 
 ## 📋 Voraussetzungen
 
@@ -70,6 +78,7 @@ FamilyHub_v2/
 │   ├── firebase.js          # Firebase-Konfiguration
 │   ├── auth.js              # Authentifizierung
 │   ├── ui.js                # Globale UI-Services
+│   ├── family-management.js # NEU: Familienverwaltung
 │   ├── components/          # Wiederverwendbare UI-Komponenten
 │   ├── utils/               # Helper-Funktionen
 │   │   ├── logger.js        # Zentrales Logging
@@ -79,6 +88,7 @@ FamilyHub_v2/
 ├── index.html               # SPA-Shell mit Templates
 ├── .env                     # Environment-Variablen (NICHT committen!)
 ├── .env.example             # Beispiel-Konfiguration
+├── FAMILY_MANAGEMENT.md     # NEU: Dokumentation Familienverwaltung
 └── vite.config.js           # Vite-Build-Konfiguration
 ```
 
@@ -135,6 +145,13 @@ npm run build
 ```
 
 Build-Artefakte werden in `dist/` erstellt.
+
+### Netlify Deployment
+
+```bash
+# Automatisch bei Git Push auf main-Branch
+# Konfiguration in netlify.toml
+```
 
 ### Firebase Functions Deployment
 
@@ -204,6 +221,23 @@ try {
 3. Branch pushen (`git push origin feature/AmazingFeature`)
 4. Pull Request öffnen
 
+### Anwenden von Patches aus Pull Requests
+
+Manchmal ist es nützlich, die Änderungen eines Pull Requests zu testen, bevor er gemerged wird. Dies kann über eine `.patch`-Datei geschehen.
+
+1.  **Pull Request ID finden:** Finde die Nummer des Pull Requests (z.B. `16`).
+2.  **Patch herunterladen:**
+    ```bash
+    # Ersetze <pr-nummer> mit der ID des Pull Requests
+    curl -L https://github.com/rjstudiodesign/FamilyHub_v2/pull/<pr-nummer>.patch -o pr<pr-nummer>.patch
+    ```
+3.  **Patch anwenden:**
+    ```bash
+    # Stelle sicher, dass dein Arbeitsverzeichnis sauber ist
+    git apply pr<pr-nummer>.patch
+    ```
+**Hinweis:** `git apply` ändert nur die Dateien, erstellt aber keinen Commit. Um die Änderungen rückgängig zu machen, kannst du `git checkout .` verwenden oder die Änderungen mit `git apply -R pr<pr-nummer>.patch` zurücknehmen.
+
 ## 📄 Lizenz
 
 Private Projekt - Alle Rechte vorbehalten.
@@ -217,4 +251,3 @@ Private Projekt - Alle Rechte vorbehalten.
 ## 📞 Support
 
 Bei Fragen oder Problemen bitte Issue erstellen oder Kontakt aufnehmen.
-
