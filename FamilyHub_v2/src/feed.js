@@ -285,7 +285,8 @@ export function renderFeed(pageListeners) {
                     if (isInitialLoad) {
                         feedContainer.appendChild(newPostElement);
                     } else {
-                        // Neue Posts (nach dem ersten Laden) oben anzeigen
+                        // NEW: Apply animation for new posts (not on initial load)
+                        newPostElement.classList.add('slide-in-from-top');
                         feedContainer.prepend(newPostElement);
                     }
                 }
@@ -294,6 +295,7 @@ export function renderFeed(pageListeners) {
                 if (existingElement) {
                     const updatedPostElement = createPostElement(post);
                     if (updatedPostElement) {
+                        // NEW: Preserve position and apply smooth transition for updates
                         existingElement.replaceWith(updatedPostElement);
                     }
                 }
@@ -680,16 +682,73 @@ async function addComment(postId) {
     const text = commentInput.value.trim();
 
     if (text) {
-        const commentsRef = collection(db, 'families', currentFamilyId, 'posts', postId, 'comments');
-        await addDoc(commentsRef, {
-            text: text,
-            authorId: currentUser.uid,
-            authorName: currentUserData ? currentUserData.name : 'Anonym',
-            authorAvatar: currentUser.photoURL,
-            createdAt: serverTimestamp()
-        });
+        const commentsContainer = document.getElementById('comments-list');
+        const authorName = currentUserData ? currentUserData.name : 'Anonym';
+        
+        // NEW: Optimistic UI - Create temporary ID
+        const tempId = `temp-${Date.now()}`;
+        
+        // NEW: Add comment immediately with pending state
+        const tempCommentElement = document.createElement('div');
+        tempCommentElement.id = `comment-${tempId}`;
+        tempCommentElement.className = 'comment-item flex items-start space-x-3 mb-4 optimistic-pending';
+        tempCommentElement.innerHTML = `
+            <img src="${currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}`}" alt="${authorName}" class="w-8 h-8 rounded-full">
+            <div class="flex-1">
+                <div class="bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2">
+                    <p class="font-semibold text-sm text-text-main">${authorName}</p>
+                    <p class="text-sm text-text-secondary">${text}</p>
+                </div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Wird gesendet...</span>
+            </div>
+        `;
+        
+        if (commentsContainer) {
+            // Remove empty state if present
+            const emptyState = commentsContainer.querySelector('.text-center');
+            if (emptyState) {
+                emptyState.remove();
+            }
+            commentsContainer.appendChild(tempCommentElement);
+        }
+        
         commentInput.value = '';
-        loadComments(postId);
+        
+        try {
+            const commentsRef = collection(db, 'families', currentFamilyId, 'posts', postId, 'comments');
+            await addDoc(commentsRef, {
+                text: text,
+                authorId: currentUser.uid,
+                authorName: authorName,
+                authorAvatar: currentUser.photoURL,
+                createdAt: serverTimestamp()
+            });
+            
+            // NEW: Remove temp element after successful save
+            const tempElement = document.getElementById(`comment-${tempId}`);
+            if (tempElement) {
+                tempElement.remove();
+            }
+            
+            loadComments(postId);
+        } catch (error) {
+            console.error('Error adding comment:', error);
+            
+            // NEW: Show error state
+            const tempElement = document.getElementById(`comment-${tempId}`);
+            if (tempElement) {
+                tempElement.classList.remove('optimistic-pending');
+                tempElement.classList.add('optimistic-error');
+                tempElement.querySelector('span').textContent = 'Fehler beim Senden';
+                
+                // Remove error element after 3 seconds
+                setTimeout(() => {
+                    tempElement.remove();
+                }, 3000);
+            }
+            
+            showNotification('Kommentar konnte nicht gesendet werden', 'error');
+        }
     }
 }
 
