@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FamilyHub - Admin Panel</title>
+  <style>
+    :root {
+      --primary-bg: rgb(10, 9, 8);
+      --text-main: rgb(242, 244, 243);
+      --text-secondary: rgb(156, 163, 175);
+      --text-tertiary: rgb(107, 114, 128);
+      --accent-glow: rgb(160, 70, 104);
+      --glass-bg: rgba(10, 9, 8, 0.8);
+      --border-glass: rgba(242, 244, 243, 0.1);
+      --shadow-glow: 0 0 15px rgba(160, 70, 104, 0.4);
+      --shadow-glow-hover: 0 0 25px rgba(160, 70, 104, 0.6);
+      --radius-container: 16px;
+      --radius-btn: 10px;
+      --success: rgb(34, 197, 94);
+      --warning: rgb(251, 191, 36);
+      --danger: rgb(239, 68, 68);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: var(--primary-bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Loader */
+    .loader {
+      position: fixed;
+      inset: 0;
+      background: var(--primary-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid var(--border-glass);
+      border-top-color: var(--accent-glow);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Login Screen */
+    .login-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-box {
+      background: var(--glass-bg);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-container);
+      padding: 40px;
+      max-width: 400px;
+      width: 100%;
+      backdrop-filter: blur(10px);
+    }
+
+    .login-box h1 {
+      background: linear-gradient(90deg, var(--accent-glow), var(--text-main));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-size: 2rem;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .login-box p {
+      color: var(--text-secondary);
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    /* Main Layout */
+    .admin-container {
+      display: none;
+      min-height: 100vh;
+    }
+
+    .admin-container.active {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--primary-bg);
+      border-right: 1px solid var(--border-glass);
+      padding: 30px 20px;
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      margin-bottom: 40px;
+    }
+
+    .sidebar-header h1 {
+      background: linear-gradient(90deg, var(--accent-glow), var(--text-main));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-size: 1.5rem;
+    }
+
+    .sidebar-header p {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin-top: 5px;
+    }
+
+    .nav-section {
+      margin-bottom: 30px;
+    }
+
+    .nav-section-title {
+      color: var(--text-tertiary);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-radius: var(--radius-btn);
+      margin-bottom: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-item:hover {
+      background: rgba(160, 70, 104, 0.1);
+      color: var(--text-main);
+    }
+
+    .nav-item.active {
+      background: rgba(160, 70, 104, 0.2);
+      color: var(--accent-glow);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .nav-item-icon {
+      margin-right: 10px;
+      font-size: 1.2rem;
+    }
+
+    /* Main Content */
+    .main-content {
+      padding: 30px;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+
+    .content-header {
+      margin-bottom: 30px;
+    }
+
+    .content-header h2 {
+      font-size: 2rem;
+      margin-bottom: 5px;
+    }
+
+    .content-header p {
+      color: var(--text-secondary);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--glass-bg);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-container);
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-container);
+      padding: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent-glow);
+    }
+
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-btn);
+      padding: 12px 15px;
+      color: var(--text-main);
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--accent-glow);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: var(--radius-btn);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--accent-glow);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      box-shadow: var(--shadow-glow-hover);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: var(--primary-bg);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-sm {
+      padding: 8px 16px;
+      font-size: 0.875rem;
+    }
+
+    /* Table */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table th {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px 15px;
+      text-align: left;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-glass);
+    }
+
+    .table td {
+      padding: 15px;
+      border-bottom: 1px solid var(--border-glass);
+    }
+
+    .table tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--success);
+    }
+
+    .badge-warning {
+      background: rgba(251, 191, 36, 0.2);
+      color: var(--warning);
+    }
+
+    .badge-danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+    }
+
+    .badge-info {
+      background: rgba(59, 130, 246, 0.2);
+      color: rgb(59, 130, 246);
+    }
+
+    /* Switch Toggle */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: 0.4s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent-glow);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--primary-bg);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-container);
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 30px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-close:hover {
+      color: var(--text-main);
+    }
+
+    /* Notification */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--glass-bg);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-btn);
+      padding: 15px 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      z-index: 2000;
+      display: none;
+      min-width: 300px;
+    }
+
+    .notification.show {
+      display: block;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .notification-success {
+      border-left: 4px solid var(--success);
+    }
+
+    .notification-error {
+      border-left: 4px solid var(--danger);
+    }
+
+    .notification-warning {
+      border-left: 4px solid var(--warning);
+    }
+
+    /* Search Bar */
+    .search-bar {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 15px 12px 45px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-btn);
+      color: var(--text-main);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-secondary);
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .admin-container.active {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Hidden class */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loader -->
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Login Screen -->
+  <div class="login-container" id="loginScreen">
+    <div class="login-box">
+      <h1>FamilyHub Admin</h1>
+      <p>Administratorbereich</p>
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="emailInput">E-Mail</label>
+          <input type="email" id="emailInput" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="passwordInput">Passwort</label>
+          <input type="password" id="passwordInput" class="form-input" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Anmelden</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Container -->
+  <div class="admin-container" id="adminContainer">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>FamilyHub</h1>
+        <p>Admin Panel</p>
+      </div>
+
+      <nav>
+        <div class="nav-section">
+          <div class="nav-section-title">Übersicht</div>
+          <div class="nav-item active" data-section="dashboard">
+            <span class="nav-item-icon">📊</span>
+            Dashboard
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">Verwaltung</div>
+          <div class="nav-item" data-section="users">
+            <span class="nav-item-icon">👥</span>
+            Benutzerverwaltung
+          </div>
+          <div class="nav-item" data-section="families">
+            <span class="nav-item-icon">🏠</span>
+            Familienverwaltung
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">Konfiguration</div>
+          <div class="nav-item" data-section="settings">
+            <span class="nav-item-icon">⚙️</span>
+            App-Einstellungen
+          </div>
+          <div class="nav-item" data-section="maintenance">
+            <span class="nav-item-icon">🔧</span>
+            Wartungsmodus
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">Inhalt</div>
+          <div class="nav-item" data-section="content">
+            <span class="nav-item-icon">📝</span>
+            Dynamische Inhalte
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">System</div>
+          <div class="nav-item" data-section="logs">
+            <span class="nav-item-icon">📋</span>
+            Logs & Monitoring
+          </div>
+        </div>
+      </nav>
+
+      <div style="margin-top: auto; padding-top: 30px;">
+        <button class="btn btn-secondary" id="logoutBtn" style="width: 100%;">Abmelden</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+      <!-- Content will be dynamically loaded here -->
+    </main>
+  </div>
+
+  <!-- Notification Container -->
+  <div class="notification" id="notification"></div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { 
+      getAuth, 
+      signInWithEmailAndPassword, 
+      signOut,
+      onAuthStateChanged 
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { 
+      getFirestore, 
+      collection, 
+      query, 
+      getDocs,
+      doc,
+      getDoc,
+      updateDoc,
+      setDoc,
+      deleteDoc,
+      where,
+      orderBy,
+      limit,
+      onSnapshot,
+      serverTimestamp,
+      increment
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // Firebase Configuration - REPLACE WITH YOUR CONFIG
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID",
+      measurementId: "YOUR_MEASUREMENT_ID"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Global state
+    let currentSection = 'dashboard';
+    let adminUser = null;
+
+    // DOM Elements
+    const loader = document.getElementById('loader');
+    const loginScreen = document.getElementById('loginScreen');
+    const loginForm = document.getElementById('loginForm');
+    const adminContainer = document.getElementById('adminContainer');
+    const mainContent = document.getElementById('mainContent');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const navItems = document.querySelectorAll('.nav-item');
+
+    // Utility Functions
+    function showNotification(message, type = 'success') {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.className = `notification notification-${type} show`;
+      setTimeout(() => {
+        notification.classList.remove('show');
+      }, 3000);
+    }
+
+    function showLoader() {
+      loader.style.display = 'flex';
+    }
+
+    function hideLoader() {
+      loader.style.display = 'none';
+    }
+
+    // Auth State Observer
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Check if user is admin
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const userData = userDoc.data();
+          
+          if (userData && userData.role === 'admin') {
+            adminUser = { ...user, ...userData };
+            loginScreen.style.display = 'none';
+            adminContainer.classList.add('active');
+            loadSection('dashboard');
+          } else {
+            showNotification('Keine Administratorrechte', 'error');
+            await signOut(auth);
+          }
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+          showNotification('Fehler bei der Authentifizierung', 'error');
+          await signOut(auth);
+        }
+      } else {
+        adminUser = null;
+        loginScreen.style.display = 'flex';
+        adminContainer.classList.remove('active');
+      }
+      hideLoader();
+    });
+
+    // Login Handler
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('emailInput').value;
+      const password = document.getElementById('passwordInput').value;
+
+      showLoader();
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        hideLoader();
+        showNotification('Anmeldung fehlgeschlagen: ' + error.message, 'error');
+      }
+    });
+
+    // Logout Handler
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+        showNotification('Erfolgreich abgemeldet', 'success');
+      } catch (error) {
+        showNotification('Fehler beim Abmelden', 'error');
+      }
+    });
+
+    // Navigation
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const section = item.dataset.section;
+        navItems.forEach(nav => nav.classList.remove('active'));
+        item.classList.add('active');
+        loadSection(section);
+      });
+    });
+
+    // Section Loading
+    async function loadSection(section) {
+      currentSection = section;
+      mainContent.innerHTML = '';
+
+      switch(section) {
+        case 'dashboard':
+          await renderDashboard();
+          break;
+        case 'users':
+          await renderUsers();
+          break;
+        case 'families':
+          await renderFamilies();
+          break;
+        case 'settings':
+          await renderSettings();
+          break;
+        case 'maintenance':
+          await renderMaintenance();
+          break;
+        case 'content':
+          await renderContent();
+          break;
+        case 'logs':
+          await renderLogs();
+          break;
+      }
+    }
+
+    // Dashboard Section
+    async function renderDashboard() {
+      mainContent.innerHTML = `
+        <div class="content-header">
+          <h2>Dashboard</h2>
+          <p>Übersicht über die wichtigsten Metriken</p>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-label">Gesamte Benutzer</div>
+            <div class="stat-value" id="totalUsers">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Aktive Familien</div>
+            <div class="stat-value" id="totalFamilies">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Beiträge heute</div>
+            <div class="stat-value" id="postsToday">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Aktive Nutzer (24h)</div>
+            <div class="stat-value" id="activeUsers">-</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Systemstatus</h3>
+          </div>
+          <div id="systemStatus"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Neueste Aktivitäten</h3>
+          </div>
+          <div id="recentActivity"></div>
+        </div>
+      `;
+
+      // Load stats
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        document.getElementById('totalUsers').textContent = usersSnap.size;
+
+        const familiesSnap = await getDocs(collection(db, 'families'));
+        document.getElementById('totalFamilies').textContent = familiesSnap.size;
+
+        // Get posts from last 24 hours
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const postsQuery = query(
+          collection(db, 'posts'),
+          where('createdAt', '>=', yesterday)
+        );
+        const postsSnap = await getDocs(postsQuery);
+        document.getElementById('postsToday').textContent = postsSnap.size;
+
+        // Active users calculation would need lastActive field
+        document.getElementById('activeUsers').textContent = '-';
+
+        // System status
+        const statusDiv = document.getElementById('systemStatus');
+        const configDoc = await getDoc(doc(db, 'config', 'app'));
+        const config = configDoc.data() || {};
+        
+        statusDiv.innerHTML = `
+          <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+            <div>
+              <strong>Wartungsmodus:</strong>
+              <span class="badge ${config.maintenanceMode ? 'badge-warning' : 'badge-success'}">
+                ${config.maintenanceMode ? 'Aktiv' : 'Inaktiv'}
+              </span>
+            </div>
+            <div>
+              <strong>API Status:</strong>
+              <span class="badge badge-success">Online</span>
+            </div>
+            <div>
+              <strong>Datenbank:</strong>
+              <span class="badge badge-success">Verbunden</span>
+            </div>
+          </div>
+        `;
+
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+        showNotification('Fehler beim Laden der Statistiken', 'error');
+      }
+    }
+
+    // Users Section
+    async function renderUsers() {
+      mainContent.innerHTML = `
+        <div class="content-header">
+          <h2>Benutzerverwaltung</h2>
+          <p>Verwalte alle registrierten Benutzer</p>
+        </div>
+
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" id="userSearch" placeholder="Benutzer suchen...">
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Alle Benutzer</h3>
+            <button class="btn btn-primary btn-sm" id="refreshUsersBtn">Aktualisieren</button>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>E-Mail</th>
+                  <th>Familie</th>
+                  <th>Status</th>
+                  <th>Erstellt</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <tr><td colspan="6" style="text-align: center;">Lade Benutzer...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      await loadUsers();
+
+      // Search functionality
+      document.getElementById('userSearch').addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('#usersTableBody tr');
+        rows.forEach(row => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+      });
+
+      document.getElementById('refreshUsersBtn').addEventListener('click', loadUsers);
+    }
+
+    async function loadUsers() {
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const tbody = document.getElementById('usersTableBody');
+        
+        if (usersSnap.empty) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Keine Benutzer gefunden</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        usersSnap.forEach(userDoc => {
+          const user = userDoc.data();
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${user.displayName || 'Unbekannt'}</td>
+            <td>${user.email || '-'}</td>
+            <td>${user.familyName || '-'}</td>
+            <td>
+              <span class="badge ${user.disabled ? 'badge-danger' : 'badge-success'}">
+                ${user.disabled ? 'Deaktiviert' : 'Aktiv'}
+              </span>
+            </td>
+            <td>${user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString('de-DE') : '-'}</td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn btn-sm btn-secondary" onclick="editUser('${userDoc.id}')">Bearbeiten</button>
+                <button class="btn btn-sm ${user.disabled ? 'btn-success' : 'btn-warning'}" 
+                        onclick="toggleUserStatus('${userDoc.id}', ${!user.disabled})">
+                  ${user.disabled ? 'Aktivieren' : 'Deaktivieren'}
+                </button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error loading users:', error);
+        showNotification('Fehler beim Laden der Benutzer', 'error');
+      }
+    }
+
+    window.editUser = async (userId) => {
+      showNotification('Bearbeitungsfunktion wird implementiert...', 'warning');
+    };
+
+    window.toggleUserStatus = async (userId, disable) => {
+      try {
+        await updateDoc(doc(db, 'users', userId), {
+          disabled: disable,
+          updatedAt: serverTimestamp()
+        });
+        showNotification(`Benutzer wurde ${disable ? 'deaktiviert' : 'aktiviert'}`, 'success');
+        await loadUsers();
+      } catch (error) {
+        console.error('Error toggling user status:', error);
+        showNotification('Fehler beim Ändern des Benutzerstatus', 'error');
+      }
+    };
+
+    // Families Section
+    async function renderFamilies() {
+      mainContent.innerHTML = `
+        <div class="content-header">
+          <h2>Familienverwaltung</h2>
+          <p>Übersicht aller Familien</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Alle Familien</h3>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Familienname</th>
+                  <th>Mitglieder</th>
+                  <th>Erstellt</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="familiesTableBody">
+                <tr><td colspan="4" style="text-align: center;">Lade Familien...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      try {
+        const familiesSnap = await getDocs(collection(db, 'families'));
+        const tbody = document.getElementById('familiesTableBody');
+        
+        if (familiesSnap.empty) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Keine Familien gefunden</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        for (const familyDoc of familiesSnap.docs) {
+          const family = familyDoc.data();
+          const membersCount = family.members ? family.members.length : 0;
+          
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${family.name || 'Unbekannt'}</td>
+            <td>${membersCount}</td>
+            <td>${family.createdAt ? new Date(family.createdAt.seconds * 1000).toLocaleDateString('de-DE') : '-'}</td>
+            <td>
+              <button class="btn btn-sm btn-secondary" onclick="viewFamily('${familyDoc.id}')">Details</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        }
+      } catch (error) {
+        console.error('Error loading families:', error);
+        showNotification('Fehler beim Laden der Familien', 'error');
+      }
+    }
+
+    window.viewFamily = async (familyId) => {
+      showNotification('Detail-Ansicht wird implementiert...', 'warning');
+    };
+
+    // Settings Section
+    async function renderSettings() {
+      mainContent.innerHTML = `
+        <div class="content-header">
+          <h2>App-Einstellungen</h2>
+          <p>Globale Konfiguration der Anwendung</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Allgemeine Einstellungen</h3>
+          </div>
+          <form id="settingsForm">
+            <div class="form-group">
+              <label class="form-label">App-Name</label>
+              <input type="text" class="form-input" id="appName" value="FamilyHub">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Standard-Familienrolle für neue Mitglieder</label>
+              <select class="form-select" id="defaultRole">
+                <option value="member">Mitglied</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Maximale Upload-Größe (MB)</label>
+              <input type="number" class="form-input" id="maxUploadSize" value="10">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>Neue Registrierungen erlauben</span>
+                <label class="switch">
+                  <input type="checkbox" id="allowRegistration" checked>
+                  <span class="slider"></span>
+                </label>
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Einstellungen speichern</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Benachrichtigungseinstellungen</h3>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+              <span>E-Mail-Benachrichtigungen aktivieren</span>
+              <label class="switch">
+                <input type="checkbox" id="emailNotifications">
+                <span class="slider"></span>
+              </label>
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+              <span>Push-Benachrichtigungen aktivieren</span>
+              <label class="switch">
+                <input type="checkbox" id="pushNotifications">
+                <span class="slider"></span>
+              </label>
+            </label>
+          </div>
+        </div>
+      `;
+
+      // Load current settings
+      try {
+        const configDoc = await getDoc(doc(db, 'config', 'app'));
+        if (configDoc.exists()) {
+          const config = configDoc.data();
+          if (config.appName) document.getElementById('appName').value = config.appName;
+          if (config.defaultRole) document.getElementById('defaultRole').value = config.defaultRole;
+          if (config.maxUploadSize) document.getElementById('maxUploadSize').value = config.maxUploadSize;
+          if (config.allowRegistration !== undefined) document.getElementById('allowRegistration').checked = config.allowRegistration;
+          if (config.emailNotifications !== undefined) document.getElementById('emailNotifications').checked = config.emailNotifications;
+          if (config.pushNotifications !== undefined) document.getElementById('pushNotifications').checked = config.pushNotifications;
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+
+      // Save settings
+      document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const settings = {
+          appName: document.getElementById('appName').value,
+          defaultRole: document.getElementById('defaultRole').value,
+          maxUploadSize: parseInt(document.getElementById('maxUploadSize').value),
+          allowRegistration: document.getElementById('allowRegistration').checked,
+          emailNotifications: document.getElementById('emailNotifications').checked,
+          pushNotifications: document.getElementById('pushNotifications').checked,
+          updatedAt: serverTimestamp(),
+          updatedBy: adminUser.uid
+        };
+
+        try {
+          await setDoc(doc(db, 'config', 'app'), settings, { merge: true });
+          showNotification('Einstellungen erfolgreich gespeichert', 'success');
+        } catch (error) {
+          console.error('Error saving settings:', error);
+          showNotification('Fehler beim Speichern der Einstellungen', 'error');
+        }
+      });
+    }
+
+    // Maintenance Section
+    async function renderMaintenance() {
+      mainContent.innerHTML = `
+        <div class="content-header">
+          <h2>Wartungsmodus</h2>
+          <p>Systemwartung und Fehlerbehebung</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Wartungsmodus</h3>
+          </div>
+          <div style="padding: 20px 0;">
+            <label class="form-label" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+              <div>
+                <strong style="color: var(--text-main); font-size: 1.1rem;">Wartungsmodus aktivieren</strong>
+                <p style="color: var(--text-secondary); margin-top: 5px; font-size: 0.9rem;">
+                  Wenn aktiviert, können nur Administratoren auf die App zugreifen
+                </p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="maintenanceModeToggle">
+                <span class="slider"></span>
+              </label>
+            </label>
+            <div class="form-group">
+              <label class="form-label">Wartungsnachricht</label>
+              <textarea class="form-textarea" id="maintenanceMessage" 
+                        placeholder="Nachricht, die Benutzern angezeigt wird..."></textarea>
+            </div>
+            <button class="btn btn-primary" id="saveMaintenanceBtn">Speichern</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Debug-Modus</h3>
+          </div>
+          <div style="padding: 20px 0;">
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+              Aktivieren Sie den Debug-Modus für bestimmte Benutzer zur Fehleranalyse
+            </p>
+            <div class="form-group">
+              <label class="form-label">Benutzer-ID</label>
+              <input type="text" class="form-input" id="debugUserId" placeholder="Benutzer-ID eingeben...">
+            </div>
+            <button class="btn btn-warning" id="enableDebugBtn">Debug-Modus aktivieren</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Systemaktionen</h3>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" id="clearCacheBtn">Cache leeren</button>
+            <button class="btn btn-warning" id="resetStatsBtn">Statistiken zurücksetzen</button>
+            <button class="btn btn-danger" id="emergencyShutdownBtn">Notabschaltung</button>
+          </div>
+        </div>
+      `;
+
+      // Load maintenance settings
+      try {
+        const configDoc = await getDoc(doc(db, 'config', 'app'));
+        if (configDoc.exists()) {
+          const config = configDoc.data();
+          if (config.maintenanceMode !== undefined) {
+            document.getElementById('maintenanceModeToggle').checked = config.maintenanceMode;
+          }
+          if (config.maintenanceMessage) {
+            document.getElementById('maintenanceMessage').value = config.maintenanceMessage;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading maintenance settings:', error);
+      }
+
+      // Save maintenance settings
+      document.getElementById('saveMaintenanceBtn').addEventListener('click', async () => {
+        const maintenanceMode = document.getElementById('maintenanceModeToggle').checked;
+        const maintenanceMessage = document.getElementById('maintenanceMessage').value;
+
+        try {
+          await setDoc(doc(db, 'config', 'app'), {
+            maintenanceMode,
+            maintenanceMessage,
+            updatedAt: serverTimestamp(),
+            updatedBy: adminUser.uid
+          }, { merge: true });
+          showNotification('Wartungsmodus-Einstellungen gespeichert', 'success');
+        } catch (error) {
+          console.error('Error saving maintenance settings:', error);
+          showNotification('Fehler beim Speichern', 'error');
+        }
+      });
+
+      // Debug mode
+      document.getElementById('enableDebugBtn').addEventListener('click', async () => {
+        const userId = document.getElementById('debugUserId').value.trim();
+        if (!userId) {
+          showNotification('Bitte Benutzer-ID eingeben', 'warning');
+          return;
+        }
+
+        try {
+          await updateDoc(doc(db, 'users', userId), {
+            debugMode: true,
+            debugEnabledAt: serverTimestamp(),
+            debugEnabledBy: adminUser.uid
+          });
+          showNotification('Debug-Modus für Benutzer aktiviert', 'success');
+          document.getElementById('debugUserId').value = '';
+        } catch (error) {
+          console.error('Error enabling debug mode:', error);
+          showNotification('Fehler beim Aktivieren des Debug-Modus', 'error');
+        }
+      });
+
+      // System actions
+      document.getElementById('clearCacheBtn').addEventListener('click', () => {
+        showNotification('Cache-Löschfunktion wird implementiert...', 'warning');
+      });
+
+      document.getElementById('resetStatsBtn').addEventListener('click', () => {
+        if (confirm('Möchten Sie wirklich alle Statistiken zurücksetzen?')) {
+          showNotification('Statistik-Reset wird implementiert...', 'warning');
+        }
+      });
+
+      document.getElementById('emergencyShutdownBtn').addEventListener('click', async () => {
+        if (confirm('WARNUNG: Notabschaltung aktivieren? Dies deaktiviert die App für alle Benutzer!')) {
+          try {
+            await setDoc(doc(db, 'config', 'app'), {
+              emergencyShutdown: true,
+              maintenanceMode: true,
+              maintenanceMessage: 'Die App ist aufgrund eines Notfalls vorübergehend nicht verfügbar.',
+              shutdownAt: serverTimestamp(),
+              shutdownBy: adminUser.uid
+            }, { merge: true });
+            showNotification('Notabschaltung aktiviert', 'warning');
+          } catch (error) {
+            console.error('Error activating emergency shutdown:', error);
+            showNotification('Fehler bei der Notabschaltung', 'error');
+          }
+        }
+      });
+    }
+
+    // Content Section
+    async function renderContent() {
+      mainContent.innerHTML = `
+        <div class="content-header">
+          <h2>Dynamische Inhalte</h2>
+          <p>Verwalte Inhalte, die in der App angezeigt werden</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Banner & Ankündigungen</h3>
+            <button class="btn btn-primary btn-sm" id="addBannerBtn">Neues Banner</button>
+          </div>
+          <div id="bannersContainer">
+            <p style="color: var(--text-secondary);">Lade Banner...</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Rechtliche Dokumente</h3>
+          </div>
+          <div class="form-group">
+            <label class="form-label">AGB-Link</label>
+            <input type="url" class="form-input" id="termsLink" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Datenschutz-Link</label>
+            <input type="url" class="form-input" id="privacyLink" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Impressum-Link</label>
+            <input type="url" class="form-input" id="imprintLink" placeholder="https://...">
+          </div>
+          <button class="btn btn-primary" id="saveLegalLinksBtn">Links speichern</button>
+        </div>
+      `;
+
+      // Load legal links
+      try {
+        const configDoc = await getDoc(doc(db, 'config', 'app'));
+        if (configDoc.exists()) {
+          const config = configDoc.data();
+          if (config.termsLink) document.getElementById('termsLink').value = config.termsLink;
+          if (config.privacyLink) document.getElementById('privacyLink').value = config.privacyLink;
+          if (config.imprintLink) document.getElementById('imprintLink').value = config.imprintLink;
+        }
+      } catch (error) {
+        console.error('Error loading legal links:', error);
+      }
+
+      // Save legal links
+      document.getElementById('saveLegalLinksBtn').addEventListener('click', async () => {
+        try {
+          await setDoc(doc(db, 'config', 'app'), {
+            termsLink: document.getElementById('termsLink').value,
+            privacyLink: document.getElementById('privacyLink').value,
+            imprintLink: document.getElementById('imprintLink').value,
+            updatedAt: serverTimestamp(),
+            updatedBy: adminUser.uid
+          }, { merge: true });
+          showNotification('Links erfolgreich gespeichert', 'success');
+        } catch (error) {
+          console.error('Error saving legal links:', error);
+          showNotification('Fehler beim Speichern', 'error');
+        }
+      });
+
+      // Add banner functionality
+      document.getElementById('addBannerBtn').addEventListener('click', () => {
+        showNotification('Banner-Erstellungsfunktion wird implementiert...', 'warning');
+      });
+
+      // Load banners
+      loadBanners();
+    }
+
+    async function loadBanners() {
+      try {
+        const bannersSnap = await getDocs(collection(db, 'banners'));
+        const container = document.getElementById('bannersContainer');
+        
+        if (bannersSnap.empty) {
+          container.innerHTML = '<p style="color: var(--text-secondary);">Keine Banner vorhanden</p>';
+          return;
+        }
+
+        container.innerHTML = '';
+        bannersSnap.forEach(bannerDoc => {
+          const banner = bannerDoc.data();
+          const bannerEl = document.createElement('div');
+          bannerEl.style.cssText = 'padding: 15px; border: 1px solid var(--border-glass); border-radius: var(--radius-btn); margin-bottom: 10px;';
+          bannerEl.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div>
+                <strong>${banner.title || 'Kein Titel'}</strong>
+                <p style="color: var(--text-secondary); margin: 5px 0;">${banner.message || ''}</p>
+                <span class="badge ${banner.active ? 'badge-success' : 'badge-danger'}">
+                  ${banner.active ? 'Aktiv' : 'Inaktiv'}
+                </span>
+              </div>
+              <button class="btn btn-sm btn-danger" onclick="deleteBanner('${bannerDoc.id}')">Löschen</button>
+            </div>
+          `;
+          container.appendChild(bannerEl);
+        });
+      } catch (error) {
+        console.error('Error loading banners:', error);
+      }
+    }
+
+    window.deleteBanner = async (bannerId) => {
+      if (confirm('Banner wirklich löschen?')) {
+        try {
+          await deleteDoc(doc(db, 'banners', bannerId));
+          showNotification('Banner gelöscht', 'success');
+          loadBanners();
+        } catch (error) {
+          console.error('Error deleting banner:', error);
+          showNotification('Fehler beim Löschen', 'error');
+        }
+      }
+    };
+
+    // Logs Section
+    async function renderLogs() {
+      mainContent.innerHTML = `
+        <div class="content-header">
+          <h2>Logs & Monitoring</h2>
+          <p>System-Logs und Aktivitäten</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Aktivitäts-Log</h3>
+            <button class="btn btn-primary btn-sm" id="refreshLogsBtn">Aktualisieren</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Log-Typ filtern</label>
+            <select class="form-select" id="logTypeFilter">
+              <option value="all">Alle</option>
+              <option value="auth">Authentifizierung</option>
+              <option value="user">Benutzeraktionen</option>
+              <option value="admin">Admin-Aktionen</option>
+              <option value="error">Fehler</option>
+            </select>
+          </div>
+          <div id="logsContainer" style="max-height: 600px; overflow-y: auto;">
+            <p style="color: var(--text-secondary);">Lade Logs...</p>
+          </div>
+        </div>
+      `;
+
+      loadLogs();
+
+      document.getElementById('refreshLogsBtn').addEventListener('click', loadLogs);
+      document.getElementById('logTypeFilter').addEventListener('change', loadLogs);
+    }
+
+    async function loadLogs() {
+      const container = document.getElementById('logsContainer');
+      const logType = document.getElementById('logTypeFilter')?.value || 'all';
+      
+      try {
+        let logsQuery = query(
+          collection(db, 'logs'),
+          orderBy('timestamp', 'desc'),
+          limit(100)
+        );
+
+        if (logType !== 'all') {
+          logsQuery = query(
+            collection(db, 'logs'),
+            where('type', '==', logType),
+            orderBy('timestamp', 'desc'),
+            limit(100)
+          );
+        }
+
+        const logsSnap = await getDocs(logsQuery);
+        
+        if (logsSnap.empty) {
+          container.innerHTML = '<p style="color: var(--text-secondary);">Keine Logs vorhanden</p>';
+          return;
+        }
+
+        container.innerHTML = '';
+        logsSnap.forEach(logDoc => {
+          const log = logDoc.data();
+          const logEl = document.createElement('div');
+          logEl.style.cssText = 'padding: 12px; border-bottom: 1px solid var(--border-glass); font-size: 0.9rem;';
+          
+          const timestamp = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString('de-DE') : '-';
+          const badgeClass = log.type === 'error' ? 'badge-danger' : log.type === 'admin' ? 'badge-warning' : 'badge-info';
+          
+          logEl.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div style="flex: 1;">
+                <span class="badge ${badgeClass}" style="margin-right: 10px;">${log.type || 'system'}</span>
+                <span style="color: var(--text-secondary);">${timestamp}</span>
+                <p style="margin: 8px 0 0 0;">${log.message || 'Keine Beschreibung'}</p>
+                ${log.userId ? `<span style="color: var(--text-tertiary); font-size: 0.8rem;">User: ${log.userId}</span>` : ''}
+              </div>
+            </div>
+          `;
+          container.appendChild(logEl);
+        });
+      } catch (error) {
+        console.error('Error loading logs:', error);
+        container.innerHTML = '<p style="color: var(--danger);">Fehler beim Laden der Logs</p>';
+      }
+    }
+
+    // Initialize app
+    showLoader();
+  </script>
+</body>
+</html>
