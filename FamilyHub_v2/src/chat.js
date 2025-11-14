@@ -11,6 +11,9 @@ let mediaRecorder = null;
 let audioChunks = [];
 let recordingStartTime = null;
 let recordingInterval = null;
+// NEW: Typing indicator variables
+let typingTimeout = null;
+let typingListenerUnsubscribe = () => {};
 
 // Rendert die Haupt-Chat-Liste
 export function renderChat(listeners, params = {}) {
@@ -102,6 +105,9 @@ export function renderChat(listeners, params = {}) {
             sendBtn.classList.add('hidden');
             micBtn.classList.remove('hidden');
         }
+        
+        // NEW: Update typing indicator
+        updateTypingStatus(true);
     });
     
     // Initiale Anzeige setzen
@@ -196,6 +202,28 @@ export function renderChat(listeners, params = {}) {
         // Button-Toggle zurücksetzen
         sendBtn.classList.add('hidden');
         micBtn.classList.remove('hidden');
+        
+        // NEW: Stop typing indicator
+        updateTypingStatus(false);
+        
+        // NEW: Optimistic UI - Create temporary message
+        const tempId = `temp-${Date.now()}`;
+        const messagesContainer = document.getElementById('chat-messages-container');
+        
+        const tempMessage = {
+            type: 'text',
+            text: text,
+            senderId: currentUser.uid,
+            senderName: currentUserData.name,
+            pending: true
+        };
+        
+        const tempMsgElement = document.createElement('div');
+        tempMsgElement.id = `msg-${tempId}`;
+        tempMsgElement.className = 'optimistic-pending';
+        tempMsgElement.innerHTML = renderMessageBubble(tempMessage, currentUser.uid);
+        messagesContainer.appendChild(tempMsgElement);
+        scrollToChatBottom();
 
         try {
             // 1. Nachricht zur Subcollection hinzufügen
@@ -216,10 +244,29 @@ export function renderChat(listeners, params = {}) {
                 unread: true // (Optional: Setze 'ungelesen' Status für andere)
             });
             
+            // NEW: Remove temp message after successful save
+            const tempElement = document.getElementById(`msg-${tempId}`);
+            if (tempElement) {
+                tempElement.remove();
+            }
+            
             scrollToChatBottom(); // Erneut scrollen
         } catch (error) {
             console.error("Error sending message:", error);
             showNotification("Senden fehlgeschlagen", "error");
+            
+            // NEW: Show error state for temp message
+            const tempElement = document.getElementById(`msg-${tempId}`);
+            if (tempElement) {
+                tempElement.classList.remove('optimistic-pending');
+                tempElement.classList.add('optimistic-error');
+                
+                // Remove error message after 3 seconds
+                setTimeout(() => {
+                    tempElement.remove();
+                }, 3000);
+            }
+            
             input.value = text; // Text bei Fehler wiederherstellen
         }
     };
@@ -555,10 +602,27 @@ function renderMessageBubble(message, currentUserId) {
             content = `<div class="${bubbleClass} chat-bubble">${message.text || '[Unbekannter Nachrichtentyp]'}</div>`;
     }
     
+    // NEW: Read receipt indicator (only for own messages)
+    let readReceipt = '';
+    if (isOwn && !message.pending) {
+        const isRead = message.read === true;
+        readReceipt = `
+            <div class="message-status ${isRead ? 'read' : ''}">
+                ${isRead ? 
+                    '<span class="checkmark-double"><i data-lucide="check" class="w-3 h-3"></i><i data-lucide="check" class="w-3 h-3"></i></span>' :
+                    '<i data-lucide="check" class="w-3 h-3"></i>'
+                }
+            </div>
+        `;
+    }
+    
     return `
     <div class="chat-message-container">
         ${senderName}
-        ${content}
+        <div class="flex items-end gap-1">
+            ${content}
+            ${readReceipt}
+        </div>
     </div>
     `;
 }
@@ -580,6 +644,7 @@ function openChatWindow(chatId, chatName, chatAvatar) {
 
     // 1. Alten Listener beenden
     currentMessagesUnsubscribe();
+    typingListenerUnsubscribe(); // NEW: Clean up typing listener
     currentChatId = chatId; // Setze den neuen aktiven Chat
 
     // 2. UI-Paneele umschalten
@@ -599,6 +664,12 @@ function openChatWindow(chatId, chatName, chatAvatar) {
     // 4. Nachrichten-Container vorbereiten
     const messagesContainer = document.getElementById('chat-messages-container');
     messagesContainer.innerHTML = '<div class="spinner mx-auto mt-10"></div>'; // Lade-Spinner
+
+    // NEW: Start typing indicator listener
+    listenForTypingIndicator(chatId);
+    
+    // NEW: Mark messages as read
+    markMessagesAsRead(chatId);
 
     // 5. Neuen Nachrichten-Listener starten
     const messagesQuery = query(
@@ -624,7 +695,15 @@ function openChatWindow(chatId, chatName, chatAvatar) {
                     messagesContainer.appendChild(msgElement);
                 }
             }
-            // 'modified' und 'removed' sind für Chats seltener, können aber hier implementiert werden
+            // NEW: Handle modified messages (for read receipts)
+            if (change.type === "modified") {
+                const msg = change.doc.data();
+                const msgId = `msg-${change.doc.id}`;
+                const existingElement = document.getElementById(msgId);
+                if (existingElement) {
+                    existingElement.innerHTML = renderMessageBubble(msg, currentUser.uid);
+                }
+            }
         });
 
         scrollToChatBottom(); // Automatisch nach unten scrollen
@@ -975,3 +1054,150 @@ window.openImageModal = (imageUrl) => {
     openModal(Card(modalContent, { variant: 'premium', className: 'max-w-4xl w-full p-2' }), modalId);
     if (typeof lucide !== 'undefined') lucide.createIcons();
 };
+
+// === NEW: TYPING INDICATOR FUNCTIONS ===
+
+/**
+ * Updates the typing status for the current user in the current chat
+ * @param {boolean} isTyping - Whether the user is currently typing
+ */
+async function updateTypingStatus(isTyping) {
+    const { currentUser, currentFamilyId } = getCurrentUser();
+    if (!currentChatId || !currentUser || !currentFamilyId) return;
+    
+    // Clear existing timeout
+    if (typingTimeout) {
+        clearTimeout(typingTimeout);
+    }
+    
+    const typingRef = doc(db, 'families', currentFamilyId, 'chats', currentChatId);
+    
+    try {
+        if (isTyping) {
+            // Set typing status
+            await updateDoc(typingRef, {
+                [`typing.${currentUser.uid}`]: serverTimestamp()
+            });
+            
+            // Auto-clear typing status after 3 seconds of no input
+            typingTimeout = setTimeout(async () => {
+                await updateDoc(typingRef, {
+                    [`typing.${currentUser.uid}`]: null
+                });
+            }, 3000);
+        } else {
+            // Clear typing status immediately
+            await updateDoc(typingRef, {
+                [`typing.${currentUser.uid}`]: null
+            });
+        }
+    } catch (error) {
+        console.error('Error updating typing status:', error);
+    }
+}
+
+/**
+ * Listens for typing status changes and updates the UI
+ */
+function listenForTypingIndicator(chatId) {
+    const { currentUser, currentFamilyId } = getCurrentUser();
+    if (!chatId || !currentUser || !currentFamilyId) return;
+    
+    // Clean up previous listener
+    typingListenerUnsubscribe();
+    
+    const chatRef = doc(db, 'families', currentFamilyId, 'chats', chatId);
+    
+    typingListenerUnsubscribe = onSnapshot(chatRef, (docSnapshot) => {
+        if (!docSnapshot.exists()) return;
+        
+        const chatData = docSnapshot.data();
+        const typing = chatData.typing || {};
+        
+        // Find who is typing (excluding current user)
+        const typingUsers = Object.entries(typing)
+            .filter(([uid, timestamp]) => {
+                if (uid === currentUser.uid) return false;
+                if (!timestamp) return false;
+                
+                // Check if typing status is recent (within last 5 seconds)
+                const now = Date.now();
+                const typingTime = timestamp.seconds * 1000;
+                return (now - typingTime) < 5000;
+            })
+            .map(([uid]) => uid);
+        
+        updateTypingIndicatorUI(typingUsers, chatData.members);
+    });
+}
+
+/**
+ * Updates the typing indicator UI
+ */
+function updateTypingIndicatorUI(typingUserIds, chatMembers) {
+    const messagesContainer = document.getElementById('chat-messages-container');
+    if (!messagesContainer) return;
+    
+    // Remove existing typing indicator
+    const existingIndicator = messagesContainer.querySelector('.typing-indicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    // Show typing indicator if anyone is typing
+    if (typingUserIds.length > 0) {
+        const { membersData } = getCurrentUser();
+        const typingNames = typingUserIds
+            .map(uid => membersData[uid]?.name || 'Jemand')
+            .join(', ');
+        
+        const indicator = document.createElement('div');
+        indicator.className = 'typing-indicator';
+        indicator.innerHTML = `
+            <span class="text-secondary">${typingNames} ${typingUserIds.length > 1 ? 'tippen' : 'tippt'}...</span>
+            <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        `;
+        messagesContainer.appendChild(indicator);
+        scrollToChatBottom();
+    }
+}
+
+// === NEW: READ RECEIPT FUNCTIONS ===
+
+/**
+ * Marks messages as read when the chat is opened
+ */
+async function markMessagesAsRead(chatId) {
+    const { currentUser, currentFamilyId } = getCurrentUser();
+    if (!chatId || !currentUser || !currentFamilyId) return;
+    
+    try {
+        const messagesRef = collection(db, 'families', currentFamilyId, 'chats', chatId, 'messages');
+        const q = query(messagesRef, where('senderId', '!=', currentUser.uid));
+        const snapshot = await getDocs(q);
+        
+        // Batch update to mark messages as read
+        const batch = [];
+        snapshot.docs.forEach((docSnapshot) => {
+            const msg = docSnapshot.data();
+            if (!msg.read) {
+                batch.push(
+                    updateDoc(doc(db, 'families', currentFamilyId, 'chats', chatId, 'messages', docSnapshot.id), {
+                        read: true,
+                        readAt: serverTimestamp()
+                    })
+                );
+            }
+        });
+        
+        if (batch.length > 0) {
+            await Promise.all(batch);
+        }
+    } catch (error) {
+        console.error('Error marking messages as read:', error);
+    }
+}
